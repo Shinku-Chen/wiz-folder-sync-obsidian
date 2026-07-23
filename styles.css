@@ -62,8 +62,15 @@
 	margin-top: 10px;
 }
 
+.wiz-sync-log__detail-label {
+	margin-bottom: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-muted);
+}
+
 .wiz-sync-log__detail pre {
-	margin: 8px 0 0;
+	margin: 0;
 	padding: 12px;
 	border-radius: 10px;
 	background: var(--background-primary);

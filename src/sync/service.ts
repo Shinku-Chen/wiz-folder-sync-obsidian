@@ -1,4 +1,5 @@
 import { App, normalizePath, TFile, TFolder } from 'obsidian';
+import { formatLogDetail } from '../logging';
 import { t } from '../i18n';
 import type { PluginState, SyncRecord, WizFolderSyncSettings } from '../settings';
 import {
@@ -123,7 +124,19 @@ export async function syncFolderToWiz(
 					level: 'error',
 					scope: 'sync',
 					message: `Failed to reconcile remote note ${remoteNote.docGuid}`,
-					detail: error instanceof Error ? error.message : String(error),
+					detail: formatLogDetail([
+						['docGuid', remoteNote.docGuid],
+						['title', remoteNote.title],
+						['category', remoteNote.category],
+						['type', remoteNote.type],
+						['desiredPath', buildLocalPathFromRemote(
+							sourceFolder,
+							targetCategory,
+							remoteNote.category,
+							remoteNote.title,
+						)],
+						['error', error instanceof Error ? error.message : String(error)],
+					]),
 				});
 				console.error(
 					`[wiz-folder-sync] Failed to reconcile remote note ${remoteNote.docGuid}`,
@@ -184,7 +197,17 @@ export async function syncFolderToWiz(
 				level: 'error',
 				scope: 'sync',
 				message: `Failed to reconcile local file ${file.path}`,
-				detail: error instanceof Error ? error.message : String(error),
+				detail: formatLogDetail([
+					['path', file.path],
+					['title', ensureMarkdownTitle(file.name)],
+					['targetCategory', buildRemoteCategory(
+						targetCategory,
+						sourceFolder,
+						file.path,
+					)],
+					['mtime', file.stat.mtime],
+					['error', error instanceof Error ? error.message : String(error)],
+				]),
 			});
 			console.error(
 				`[wiz-folder-sync] Failed to reconcile local file ${file.path}`,
@@ -351,6 +374,10 @@ async function ensureRemoteFolderStructure(
 		onLog?.({
 			scope: 'folder',
 			message: `Ensured remote category ${remoteCategory} for ${folder.path}`,
+			detail: formatLogDetail([
+				['localFolder', folder.path],
+				['remoteCategory', remoteCategory],
+			]),
 		});
 	}
 }
@@ -376,6 +403,10 @@ async function ensureLocalFolderStructure(
 		onLog?.({
 			scope: 'folder',
 			message: `Ensured local folder ${localFolder} for ${remoteCategory}`,
+			detail: formatLogDetail([
+				['remoteCategory', remoteCategory],
+				['localFolder', localFolder],
+			]),
 		});
 	}
 }
@@ -508,6 +539,16 @@ async function syncMarkdownFile(
 		context.onLog?.({
 			scope: 'sync',
 			message: `Updated remote note for ${context.file.path}`,
+			detail: formatLogDetail([
+				['path', context.file.path],
+				['docGuid', record.docGuid],
+				['remoteTitle', remoteTitle],
+				['remoteCategory', remoteCategory],
+				['remoteType', record.remoteType],
+				['resourceCount', prepared.resourceNames.length],
+				['assetCount', Object.keys(prepared.assetMappings ?? {}).length],
+				['mtime', context.file.stat.mtime],
+			]),
 		});
 		return 'updated';
 	}
@@ -554,6 +595,16 @@ async function syncMarkdownFile(
 	context.onLog?.({
 		scope: 'sync',
 		message: `Created remote note for ${context.file.path}`,
+		detail: formatLogDetail([
+			['path', context.file.path],
+			['docGuid', created.docGuid],
+			['remoteTitle', remoteTitle],
+			['remoteCategory', remoteCategory],
+			['remoteType', 'lite/markdown'],
+			['resourceCount', prepared.resourceNames.length],
+			['assetCount', Object.keys(prepared.assetMappings ?? {}).length],
+			['mtime', context.file.stat.mtime],
+		]),
 	});
 	return 'created';
 }
@@ -715,6 +766,18 @@ async function createLocalFileFromRemote(
 		created.stat.mtime,
 		remote,
 	);
+	context.onLog?.({
+		scope: 'sync',
+		message: `Created local note from remote ${context.remoteNote.docGuid}`,
+		detail: formatLogDetail([
+			['docGuid', context.remoteNote.docGuid],
+			['remoteTitle', remote.title],
+			['remoteCategory', remote.category],
+			['remoteType', remote.type],
+			['localPath', created.path],
+			['localMtime', created.stat.mtime],
+		]),
+	});
 	return created;
 }
 
@@ -746,6 +809,18 @@ async function writeRemoteToLocal(
 		refreshed.stat.mtime,
 		remote,
 	);
+	context.onLog?.({
+		scope: 'sync',
+		message: `Updated local note from remote ${context.remoteNote.docGuid}`,
+		detail: formatLogDetail([
+			['docGuid', context.remoteNote.docGuid],
+			['remoteTitle', remote.title],
+			['remoteCategory', remote.category],
+			['remoteType', remote.type],
+			['localPath', refreshed.path],
+			['localMtime', refreshed.stat.mtime],
+		]),
+	});
 	return refreshed;
 }
 

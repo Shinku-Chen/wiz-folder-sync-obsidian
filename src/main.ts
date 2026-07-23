@@ -6,6 +6,7 @@ import {
 	TFolder,
 } from 'obsidian';
 import { registerCommands } from './commands';
+import { formatLogDetail } from './logging';
 import { t } from './i18n';
 import {
 	DEFAULT_SETTINGS,
@@ -128,16 +129,45 @@ export default class WizFolderSyncPlugin extends Plugin {
 	async testConnectionCommand() {
 		try {
 			this.setStatus(t('statusTestingConnection'));
-			this.appendLog('info', 'connection', 'Testing Wiz connection');
+			this.appendLog(
+				'info',
+				'connection',
+				'Testing Wiz connection',
+				formatLogDetail([
+					['accountBaseUrl', this.settings.accountBaseUrl],
+					['userId', this.settings.userId],
+					['targetCategory', this.settings.targetCategory],
+					['syncMode', this.settings.syncMode],
+				]),
+			);
 			const summary = await testWizConnection(this.settings);
 			new Notice(summary, 8000);
 			this.setStatus(t('statusConnectionOk'));
-			this.appendLog('info', 'connection', summary);
+			this.appendLog(
+				'info',
+				'connection',
+				summary,
+				formatLogDetail([
+					['accountBaseUrl', this.settings.accountBaseUrl],
+					['userId', this.settings.userId],
+				]),
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.setStatus(t('statusConnectionFailed'));
 			new Notice(t('noticeConnectionFailed', { message }), 10000);
-			this.appendLog('error', 'connection', 'Wiz connection failed', message);
+			this.appendLog(
+				'error',
+				'connection',
+				'Wiz connection failed',
+				formatLogDetail([
+					['accountBaseUrl', this.settings.accountBaseUrl],
+					['userId', this.settings.userId],
+					['targetCategory', this.settings.targetCategory],
+					['syncMode', this.settings.syncMode],
+					['error', message],
+				]),
+			);
 			throw error;
 		}
 	}
@@ -184,6 +214,18 @@ export default class WizFolderSyncPlugin extends Plugin {
 		const failureNotice = options?.failureNotice ?? true;
 		try {
 			this.setStatus(t('statusSyncingFolder'));
+			this.appendLog(
+				'info',
+				'sync',
+				'Running folder sync',
+				formatLogDetail([
+					['syncMode', this.settings.syncMode],
+					['sourceFolder', this.settings.sourceFolder || '(vault root)'],
+					['targetCategory', this.settings.targetCategory],
+					['autoSyncOnSave', this.settings.autoSyncOnSave],
+					['pendingAutoSyncCount', this.pendingAutoSyncPaths.size],
+				]),
+			);
 			const result = await syncFolderToWiz({
 				app: this.app,
 				settings: this.settings,
@@ -211,14 +253,38 @@ export default class WizFolderSyncPlugin extends Plugin {
 			if (successNotice) {
 				new Notice(summary, 10000);
 			}
-			this.appendLog('info', 'sync', summary);
+			this.appendLog(
+				'info',
+				'sync',
+				summary,
+				formatLogDetail([
+					['syncMode', this.settings.syncMode],
+					['sourceFolder', this.settings.sourceFolder || '(vault root)'],
+					['targetCategory', this.settings.targetCategory],
+					['scanned', result.scanned],
+					['created', result.created],
+					['updated', result.updated],
+					['skipped', result.skipped],
+					['failed', result.failed],
+				]),
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.setStatus(t('statusSyncFailed'));
 			if (failureNotice) {
 				new Notice(t('noticeSyncFailed', { message }), 12000);
 			}
-			this.appendLog('error', 'sync', 'Folder sync failed', message);
+			this.appendLog(
+				'error',
+				'sync',
+				'Folder sync failed',
+				formatLogDetail([
+					['syncMode', this.settings.syncMode],
+					['sourceFolder', this.settings.sourceFolder || '(vault root)'],
+					['targetCategory', this.settings.targetCategory],
+					['error', message],
+				]),
+			);
 			throw error;
 		}
 	}
@@ -264,6 +330,12 @@ export default class WizFolderSyncPlugin extends Plugin {
 				'info',
 				trigger,
 				`Skipped ${trigger} sync because Wiz sync is not fully configured`,
+				formatLogDetail([
+					['accountBaseUrl', this.settings.accountBaseUrl],
+					['userId', this.settings.userId],
+					['targetCategory', this.settings.targetCategory],
+					['syncMode', this.settings.syncMode],
+				]),
 			);
 			return;
 		}
@@ -319,7 +391,17 @@ export default class WizFolderSyncPlugin extends Plugin {
 		}
 
 		this.pendingAutoSyncPaths.add(file.path);
-		this.appendLog('info', 'watch', `Queued auto sync for ${file.path}`);
+		this.appendLog(
+			'info',
+			'watch',
+			`Queued auto sync for ${file.path}`,
+			formatLogDetail([
+				['path', file.path],
+				['mtime', file.stat.mtime],
+				['debounceMs', this.getAutoSyncDebounceMs()],
+				['queuedCount', this.pendingAutoSyncPaths.size],
+			]),
+		);
 		this.scheduleAutoSync();
 	}
 
@@ -343,7 +425,18 @@ export default class WizFolderSyncPlugin extends Plugin {
 			...record,
 			fileMtime: 0,
 		};
-		this.appendLog('info', 'vault', `Renamed note ${oldPath} -> ${file.path}`);
+		this.appendLog(
+			'info',
+			'vault',
+			`Renamed note ${oldPath} -> ${file.path}`,
+			formatLogDetail([
+				['oldPath', oldPath],
+				['newPath', file.path],
+				['docGuid', record.docGuid],
+				['remoteCategory', record.remoteCategory],
+				['remoteTitle', record.remoteTitle],
+			]),
+		);
 		await this.savePluginState();
 	}
 
@@ -372,7 +465,15 @@ export default class WizFolderSyncPlugin extends Plugin {
 		}
 
 		if (changed) {
-			this.appendLog('info', 'vault', `Renamed folder ${oldPath} -> ${folder.path}`);
+			this.appendLog(
+				'info',
+				'vault',
+				`Renamed folder ${oldPath} -> ${folder.path}`,
+				formatLogDetail([
+					['oldPath', oldPath],
+					['newPath', folder.path],
+				]),
+			);
 			await this.savePluginState();
 		}
 	}
@@ -385,11 +486,28 @@ export default class WizFolderSyncPlugin extends Plugin {
 			delete this.state.records[path];
 			await this.savePluginState();
 			this.setStatus(t('statusIdle'));
-			this.appendLog('info', 'delete', `Moved remote note to trash for ${path}`);
+			this.appendLog(
+				'info',
+				'delete',
+				`Moved remote note to trash for ${path}`,
+				formatLogDetail([
+					['path', path],
+					['docGuid', docGuid],
+				]),
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			new Notice(t('noticeRemoteDeleteFailed', { message }), 10000);
-			this.appendLog('error', 'delete', `Failed to trash remote note for ${path}`, message);
+			this.appendLog(
+				'error',
+				'delete',
+				`Failed to trash remote note for ${path}`,
+				formatLogDetail([
+					['path', path],
+					['docGuid', docGuid],
+					['error', message],
+				]),
+			);
 			throw error;
 		}
 	}
@@ -440,6 +558,12 @@ export default class WizFolderSyncPlugin extends Plugin {
 				'info',
 				'delete',
 				`Moved remote folder subtree to trash for ${folderPath}`,
+				formatLogDetail([
+					['folderPath', folderPath],
+					['remoteRootCategory', remoteRootCategory],
+					['remoteCategoryCount', remoteCategories.length],
+					['remoteNoteCount', docGuids.size],
+				]),
 			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -448,7 +572,10 @@ export default class WizFolderSyncPlugin extends Plugin {
 				'error',
 				'delete',
 				`Failed to trash remote folder subtree for ${folderPath}`,
-				message,
+				formatLogDetail([
+					['folderPath', folderPath],
+					['error', message],
+				]),
 			);
 			throw error;
 		}
@@ -558,7 +685,16 @@ export default class WizFolderSyncPlugin extends Plugin {
 
 			try {
 				this.setStatus(t('statusAutoSyncing', { path: file.path }));
-				this.appendLog('info', 'autosync', `Auto syncing ${file.path}`);
+				this.appendLog(
+					'info',
+					'autosync',
+					`Auto syncing ${file.path}`,
+					formatLogDetail([
+						['path', file.path],
+						['mtime', file.stat.mtime],
+						['syncMode', this.settings.syncMode],
+					]),
+				);
 				const outcome = await syncFileToWiz({
 					app: this.app,
 					settings: this.settings,
@@ -583,6 +719,16 @@ export default class WizFolderSyncPlugin extends Plugin {
 				} else {
 					skipped += 1;
 				}
+				this.appendLog(
+					'info',
+					'autosync',
+					`Auto sync ${outcome} for ${file.path}`,
+					formatLogDetail([
+						['path', file.path],
+						['outcome', outcome],
+						['mtime', file.stat.mtime],
+					]),
+				);
 			} catch (error) {
 				failed += 1;
 				console.error(`[wiz-folder-sync] Auto sync failed for ${path}`, error);
@@ -590,7 +736,10 @@ export default class WizFolderSyncPlugin extends Plugin {
 					'error',
 					'autosync',
 					`Auto sync failed for ${path}`,
-					error instanceof Error ? error.message : String(error),
+					formatLogDetail([
+						['path', path],
+						['error', error instanceof Error ? error.message : String(error)],
+					]),
 				);
 			}
 		}
@@ -602,7 +751,18 @@ export default class WizFolderSyncPlugin extends Plugin {
 			failed,
 		});
 		this.setStatus(summary);
-		this.appendLog('info', 'autosync', summary);
+		this.appendLog(
+			'info',
+			'autosync',
+			summary,
+			formatLogDetail([
+				['created', created],
+				['updated', updated],
+				['skipped', skipped],
+				['failed', failed],
+				['fileCount', paths.length],
+			]),
+		);
 		if (failed > 0) {
 			new Notice(summary, 10000);
 		}

@@ -96,8 +96,11 @@ export class WizSyncLogView extends ItemView {
 		});
 
 		if (entry.detail) {
-			const detail = item.createEl('details', { cls: 'wiz-sync-log__detail' });
-			detail.createEl('summary', { text: 'Details' });
+			const detail = item.createDiv({ cls: 'wiz-sync-log__detail' });
+			detail.createDiv({
+				text: t('logDetailLabel'),
+				cls: 'wiz-sync-log__detail-label',
+			});
 			detail.createEl('pre', { text: entry.detail });
 		}
 	}
