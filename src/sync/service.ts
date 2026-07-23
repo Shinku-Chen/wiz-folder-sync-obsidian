@@ -67,7 +67,18 @@ export async function syncFolderToWiz(
 	const remoteNotes = shouldPullRemote
 		? await collectRemoteNotes(client, existingCategories, targetCategory)
 		: [];
-	const remoteByDocGuid = new Map(remoteNotes.map((note) => [note.docGuid, note]));
+	const dedupedRemoteNotes = shouldPullRemote
+		? dedupeRemoteNotesByPath(
+				remoteNotes,
+				context.state.records,
+				sourceFolder,
+				targetCategory,
+				context.onLog,
+			)
+		: remoteNotes;
+	const remoteByDocGuid = new Map(
+		dedupedRemoteNotes.map((note) => [note.docGuid, note]),
+	);
 
 	if (shouldPullRemote) {
 		await ensureLocalFolderStructure(
@@ -88,11 +99,14 @@ export async function syncFolderToWiz(
 	pruneMissingRecords(context.state.records, sourceFolder, new Set(localByPath.keys()));
 
 	context.onProgress?.(
-		t('progressPreparing', { local: files.length, remote: remoteNotes.length }),
+		t('progressPreparing', {
+			local: files.length,
+			remote: dedupedRemoteNotes.length,
+		}),
 	);
 
 	const result: SyncResult = {
-		scanned: files.length + remoteNotes.length,
+		scanned: files.length + dedupedRemoteNotes.length,
 		created: 0,
 		updated: 0,
 		skipped: 0,
@@ -100,8 +114,8 @@ export async function syncFolderToWiz(
 	};
 
 	if (shouldPullRemote) {
-		for (let index = 0; index < remoteNotes.length; index += 1) {
-			const remoteNote = remoteNotes[index];
+		for (let index = 0; index < dedupedRemoteNotes.length; index += 1) {
+			const remoteNote = dedupedRemoteNotes[index];
 			if (!remoteNote) {
 				continue;
 			}
@@ -109,7 +123,7 @@ export async function syncFolderToWiz(
 			context.onProgress?.(
 				t('progressReconcilingRemote', {
 					index: index + 1,
-					total: remoteNotes.length,
+					total: dedupedRemoteNotes.length,
 					title: remoteNote.title,
 				}),
 			);
@@ -705,6 +719,70 @@ async function collectRemoteNotes(
 	}
 
 	return notes;
+}
+
+function dedupeRemoteNotesByPath(
+	notes: WizNoteSummary[],
+	records: Record<string, SyncRecord>,
+	sourceFolder: string,
+	targetCategory: string,
+	onLog?: SyncContext['onLog'],
+): WizNoteSummary[] {
+	const existingDocGuidByPath = new Map(
+		Object.entries(records).map(([path, record]) => [path, record.docGuid]),
+	);
+	const selectedByPath = new Map<string, WizNoteSummary>();
+
+	for (const note of notes) {
+		const desiredPath = buildLocalPathFromRemote(
+			sourceFolder,
+			targetCategory,
+			note.category,
+			note.title,
+		);
+		const current = selectedByPath.get(desiredPath);
+		if (!current) {
+			selectedByPath.set(desiredPath, note);
+			continue;
+		}
+
+		const existingDocGuid = existingDocGuidByPath.get(desiredPath);
+		const currentMatchesExisting = current.docGuid === existingDocGuid;
+		const nextMatchesExisting = note.docGuid === existingDocGuid;
+
+		let winner = current;
+		if (currentMatchesExisting !== nextMatchesExisting) {
+			winner = nextMatchesExisting ? note : current;
+		} else if (note.dataModified > current.dataModified) {
+			winner = note;
+		} else if (
+			note.dataModified === current.dataModified &&
+			note.docGuid.localeCompare(current.docGuid) > 0
+		) {
+			winner = note;
+		}
+
+		if (winner !== current) {
+			selectedByPath.set(desiredPath, winner);
+		}
+
+		onLog?.({
+			level: 'warn',
+			scope: 'sync',
+			message: `Skipped duplicate remote note for ${desiredPath}`,
+			detail: formatLogDetail([
+				['desiredPath', desiredPath],
+				['keptDocGuid', winner.docGuid],
+				['keptTitle', winner.title],
+				['keptCategory', winner.category],
+				['keptModified', winner.dataModified],
+				['skippedDocGuid', winner === current ? note.docGuid : current.docGuid],
+				['existingRecordDocGuid', existingDocGuid ?? '(none)'],
+			]),
+		});
+	}
+
+	return [...selectedByPath.values()];
 }
 
 async function reconcileRemoteNote(
