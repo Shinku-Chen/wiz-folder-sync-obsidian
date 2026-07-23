@@ -139,6 +139,7 @@ Don't:
 - 更新版本时同步修改 `manifest.json` 和 `versions.json`，版本号使用语义化版本。
 - GitHub release tag 必须与 `manifest.json` 中的版本号完全一致，不加前导 `v`。
 - release 资产应包含 `manifest.json`、`main.js`、`styles.css`（如存在）。
+- GitHub Actions 的 release workflow 还会额外上传 `wiz-folder-sync-obsidian.zip`，其中顶层目录名同样为 `wiz-folder-sync-obsidian/`。
 - 构建后的发布目录是 `.build/wiz-folder-sync-obsidian/`；验证发布包时以该目录内容为准。
 
 ## 常见任务
