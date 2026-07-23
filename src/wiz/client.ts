@@ -422,11 +422,15 @@ export class WizClient {
 	}
 
 	async downloadLegacyResource(url: string): Promise<ArrayBuffer> {
-		const response = await window.fetch(url);
-		if (!response.ok) {
+		const response = await requestUrl({
+			url,
+			method: 'GET',
+			throw: false,
+		});
+		if (response.status >= 400) {
 			throw new Error(`Legacy resource download failed: HTTP ${response.status}`);
 		}
-		return await response.arrayBuffer();
+		return response.arrayBuffer;
 	}
 
 	async listNoteAttachments(docGuid: string): Promise<WizNoteAttachment[]> {
@@ -457,15 +461,18 @@ export class WizClient {
 				clientVersion: '4.0',
 			},
 		);
-		const response = await window.fetch(url, {
+		const response = await requestUrl({
+			url,
+			method: 'GET',
 			headers: {
 				'X-Wiz-Token': this.token,
 			},
+			throw: false,
 		});
-		if (!response.ok) {
+		if (response.status >= 400) {
 			throw new Error(`Attachment download failed: HTTP ${response.status}`);
 		}
-		return await response.arrayBuffer();
+		return response.arrayBuffer;
 	}
 
 	async listCollaborationResources(

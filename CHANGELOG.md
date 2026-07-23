@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`src/wiz/client.ts`、`src/sync/service.ts`、`CHANGELOG.md`
+- 摘要：把远端资源/附件下载改为 `requestUrl`，并修正“仅 为知笔记 到 Obsidian”模式下远端对账误回写远端的问题。
+
 - 影响文件：`src/sync/assets.ts`、`src/sync/service.ts`、`CHANGELOG.md`
 - 摘要：补充远端资源同步诊断日志，区分正文读取、资源列表和单个资源/附件下载失败。
 

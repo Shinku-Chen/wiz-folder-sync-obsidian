@@ -755,6 +755,12 @@ async function reconcileRemoteNote(
 	}
 
 	if (context.remoteNote.dataModified < localFile.stat.mtime) {
+		if (context.settings.syncMode === 'remote-to-local') {
+			const updated = await writeRemoteToLocal(context, localFile, desiredPath);
+			context.localByPath.set(updated.path, updated);
+			return 'updated';
+		}
+
 		await syncMarkdownFile({
 			...context,
 			file: localFile,
