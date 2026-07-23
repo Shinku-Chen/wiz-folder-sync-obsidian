@@ -67,18 +67,7 @@ export async function syncFolderToWiz(
 	const remoteNotes = shouldPullRemote
 		? await collectRemoteNotes(client, existingCategories, targetCategory)
 		: [];
-	const dedupedRemoteNotes = shouldPullRemote
-		? dedupeRemoteNotesByPath(
-				remoteNotes,
-				context.state.records,
-				sourceFolder,
-				targetCategory,
-				context.onLog,
-			)
-		: remoteNotes;
-	const remoteByDocGuid = new Map(
-		dedupedRemoteNotes.map((note) => [note.docGuid, note]),
-	);
+	const remoteByDocGuid = new Map(remoteNotes.map((note) => [note.docGuid, note]));
 
 	if (shouldPullRemote) {
 		await ensureLocalFolderStructure(
@@ -99,14 +88,11 @@ export async function syncFolderToWiz(
 	pruneMissingRecords(context.state.records, sourceFolder, new Set(localByPath.keys()));
 
 	context.onProgress?.(
-		t('progressPreparing', {
-			local: files.length,
-			remote: dedupedRemoteNotes.length,
-		}),
+		t('progressPreparing', { local: files.length, remote: remoteNotes.length }),
 	);
 
 	const result: SyncResult = {
-		scanned: files.length + dedupedRemoteNotes.length,
+		scanned: files.length + remoteNotes.length,
 		created: 0,
 		updated: 0,
 		skipped: 0,
@@ -114,8 +100,8 @@ export async function syncFolderToWiz(
 	};
 
 	if (shouldPullRemote) {
-		for (let index = 0; index < dedupedRemoteNotes.length; index += 1) {
-			const remoteNote = dedupedRemoteNotes[index];
+		for (let index = 0; index < remoteNotes.length; index += 1) {
+			const remoteNote = remoteNotes[index];
 			if (!remoteNote) {
 				continue;
 			}
@@ -123,7 +109,7 @@ export async function syncFolderToWiz(
 			context.onProgress?.(
 				t('progressReconcilingRemote', {
 					index: index + 1,
-					total: dedupedRemoteNotes.length,
+					total: remoteNotes.length,
 					title: remoteNote.title,
 				}),
 			);
@@ -721,74 +707,10 @@ async function collectRemoteNotes(
 	return notes;
 }
 
-function dedupeRemoteNotesByPath(
-	notes: WizNoteSummary[],
-	records: Record<string, SyncRecord>,
-	sourceFolder: string,
-	targetCategory: string,
-	onLog?: SyncContext['onLog'],
-): WizNoteSummary[] {
-	const existingDocGuidByPath = new Map(
-		Object.entries(records).map(([path, record]) => [path, record.docGuid]),
-	);
-	const selectedByPath = new Map<string, WizNoteSummary>();
-
-	for (const note of notes) {
-		const desiredPath = buildLocalPathFromRemote(
-			sourceFolder,
-			targetCategory,
-			note.category,
-			note.title,
-		);
-		const current = selectedByPath.get(desiredPath);
-		if (!current) {
-			selectedByPath.set(desiredPath, note);
-			continue;
-		}
-
-		const existingDocGuid = existingDocGuidByPath.get(desiredPath);
-		const currentMatchesExisting = current.docGuid === existingDocGuid;
-		const nextMatchesExisting = note.docGuid === existingDocGuid;
-
-		let winner = current;
-		if (currentMatchesExisting !== nextMatchesExisting) {
-			winner = nextMatchesExisting ? note : current;
-		} else if (note.dataModified > current.dataModified) {
-			winner = note;
-		} else if (
-			note.dataModified === current.dataModified &&
-			note.docGuid.localeCompare(current.docGuid) > 0
-		) {
-			winner = note;
-		}
-
-		if (winner !== current) {
-			selectedByPath.set(desiredPath, winner);
-		}
-
-		onLog?.({
-			level: 'warn',
-			scope: 'sync',
-			message: `Skipped duplicate remote note for ${desiredPath}`,
-			detail: formatLogDetail([
-				['desiredPath', desiredPath],
-				['keptDocGuid', winner.docGuid],
-				['keptTitle', winner.title],
-				['keptCategory', winner.category],
-				['keptModified', winner.dataModified],
-				['skippedDocGuid', winner === current ? note.docGuid : current.docGuid],
-				['existingRecordDocGuid', existingDocGuid ?? '(none)'],
-			]),
-		});
-	}
-
-	return [...selectedByPath.values()];
-}
-
 async function reconcileRemoteNote(
 	context: RemoteReconcileContext,
 ): Promise<'created' | 'updated' | 'skipped'> {
-	const desiredPath = buildLocalPathFromRemote(
+	const basePath = buildLocalPathFromRemote(
 		context.sourceFolder,
 		context.targetCategory,
 		context.remoteNote.category,
@@ -797,6 +719,11 @@ async function reconcileRemoteNote(
 	const recordEntry = findRecordByDocGuid(
 		context.state.records,
 		context.remoteNote.docGuid,
+	);
+	const desiredPath = resolveDesiredLocalPathForRemote(
+		context,
+		basePath,
+		recordEntry?.path,
 	);
 	let localFile = recordEntry
 		? context.localByPath.get(recordEntry.path) ?? null
@@ -850,6 +777,78 @@ async function reconcileRemoteNote(
 	const updated = await writeRemoteToLocal(context, localFile, desiredPath);
 	context.localByPath.set(updated.path, updated);
 	return 'updated';
+}
+
+function resolveDesiredLocalPathForRemote(
+	context: RemoteReconcileContext,
+	basePath: string,
+	recordPath?: string,
+): string {
+	const preferredPaths = [recordPath, basePath].filter(
+		(path): path is string => Boolean(path),
+	);
+	for (const candidate of preferredPaths) {
+		if (isLocalPathAvailableForRemote(context, candidate, context.remoteNote.docGuid)) {
+			return candidate;
+		}
+	}
+
+	const shortDocGuid = context.remoteNote.docGuid.slice(0, 8);
+	for (let attempt = 0; attempt < 1000; attempt += 1) {
+		const suffix =
+			attempt === 0
+				? ` [${shortDocGuid}]`
+				: ` [${shortDocGuid}-${attempt + 1}]`;
+		const candidate = appendSuffixToPath(basePath, suffix);
+		if (isLocalPathAvailableForRemote(context, candidate, context.remoteNote.docGuid)) {
+			context.onLog?.({
+				level: 'warn',
+				scope: 'sync',
+				message: `Resolved local path conflict for remote note ${context.remoteNote.docGuid}`,
+				detail: formatLogDetail([
+					['docGuid', context.remoteNote.docGuid],
+					['remoteTitle', context.remoteNote.title],
+					['remoteCategory', context.remoteNote.category],
+					['basePath', basePath],
+					['resolvedPath', candidate],
+				]),
+			});
+			return candidate;
+		}
+	}
+
+	throw new Error(`Unable to resolve unique local path for ${context.remoteNote.docGuid}`);
+}
+
+function isLocalPathAvailableForRemote(
+	context: RemoteReconcileContext,
+	path: string,
+	docGuid: string,
+): boolean {
+	const record = context.state.records[path];
+	if (record && record.docGuid !== docGuid) {
+		return false;
+	}
+
+	const file = context.localByPath.get(path);
+	if (!file) {
+		return true;
+	}
+
+	return record?.docGuid === docGuid;
+}
+
+function appendSuffixToPath(path: string, suffix: string): string {
+	const normalizedPath = normalizePath(path);
+	const parts = normalizedPath.split('/');
+	const fileName = parts.pop() ?? normalizedPath;
+	const extensionMatch = fileName.match(/(\.[^.]+)$/);
+	const extension = extensionMatch?.[1] ?? '';
+	const baseName = extension ? fileName.slice(0, -extension.length) : fileName;
+	const nextFileName = `${baseName}${suffix}${extension}`;
+	return parts.length > 0
+		? normalizePath(`${parts.join('/')}/${nextFileName}`)
+		: nextFileName;
 }
 
 async function reconcileLocalFile(

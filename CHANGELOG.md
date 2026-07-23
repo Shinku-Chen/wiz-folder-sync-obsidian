@@ -7,6 +7,9 @@
 ### 2026-07-23
 
 - 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
+- 摘要：改为保留同目录同标题的多条远端笔记；当本地路径冲突时自动追加稳定后缀，而不是直接按路径去重丢弃笔记。
+
+- 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
 - 摘要：远端拉取前按目标本地路径去重；同一路径存在多条远端笔记时优先保留已记录的 `docGuid`，否则保留较新的远端笔记，避免同一路径在一次同步中被反复覆盖。
 
 - 影响文件：`src/path.ts`、`src/sync/assets.ts`、`src/sync/service.ts`、`src/wiz/client.ts`、`CHANGELOG.md`
