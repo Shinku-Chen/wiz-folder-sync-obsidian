@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`manifest.json`、`versions.json`、`package.json`、`CHANGELOG.md`
+- 摘要：发布 `1.0.1` 版本，并同步更新插件清单、版本映射、npm 包版本号，以及 `manifest.json` 中指向仓库的作者/赞助链接。
+
 - 影响文件：`src/settings.ts`、`CHANGELOG.md`
 - 摘要：把调试日志保留上限从 100 条提高到 1000 条，扩大日志面板和 `logs.log` 的可追溯窗口。
 
