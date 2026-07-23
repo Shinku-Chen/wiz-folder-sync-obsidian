@@ -1,8 +1,73 @@
-/*
+.wiz-sync-log__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 16px;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.wiz-sync-log__header h2 {
+	margin: 0;
+}
 
-If your plugin does not need CSS, delete this file.
+.wiz-sync-log__actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
 
-*/
+.wiz-sync-log__list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.wiz-sync-log__item {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 12px;
+	background: var(--background-secondary);
+}
+
+.wiz-sync-log__item--warn {
+	border-color: var(--color-orange);
+}
+
+.wiz-sync-log__item--error {
+	border-color: var(--color-red);
+}
+
+.wiz-sync-log__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 8px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.wiz-sync-log__level,
+.wiz-sync-log__scope {
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--background-modifier-hover);
+}
+
+.wiz-sync-log__message {
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+.wiz-sync-log__detail {
+	margin-top: 10px;
+}
+
+.wiz-sync-log__detail pre {
+	margin: 8px 0 0;
+	padding: 12px;
+	border-radius: 10px;
+	background: var(--background-primary);
+	overflow: auto;
+	white-space: pre-wrap;
+	word-break: break-word;
+}

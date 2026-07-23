@@ -26,17 +26,26 @@ jobs:
                   npm ci
                   npm run build
 
+            - name: Prepare release bundle
+              run: |
+                  rm -rf obsidian-wiz-folder-sync
+                  mkdir -p obsidian-wiz-folder-sync
+                  cp -R .build/wiz-folder-sync-obsidian/. obsidian-wiz-folder-sync/
+                  zip -r obsidian-wiz-folder-sync.zip obsidian-wiz-folder-sync
+
             - name: Check for optional styles
               id: styles
               run: |
-                  [ -f styles.css ] && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
+                  [ -f .build/wiz-folder-sync-obsidian/styles.css ] && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
 
             - name: Attest build provenance
               uses: actions/attest@v4
               with:
                   subject-path: |
-                      main.js
-                      ${{ steps.styles.outputs.exists == 'true' && 'styles.css' || '' }}
+                      .build/wiz-folder-sync-obsidian/main.js
+                      .build/wiz-folder-sync-obsidian/manifest.json
+                      ${{ steps.styles.outputs.exists == 'true' && '.build/wiz-folder-sync-obsidian/styles.css' || '' }}
+                      obsidian-wiz-folder-sync.zip
 
             - name: Create release
               env:
@@ -47,4 +56,7 @@ jobs:
                   gh release create "$tag" \
                     --title="$tag" \
                     --draft \
-                    main.js manifest.json ${{ steps.styles.outputs.exists == 'true' && 'styles.css' || '' }}
+                    obsidian-wiz-folder-sync.zip \
+                    .build/wiz-folder-sync-obsidian/main.js \
+                    .build/wiz-folder-sync-obsidian/manifest.json \
+                    ${{ steps.styles.outputs.exists == 'true' && '.build/wiz-folder-sync-obsidian/styles.css' || '' }}

@@ -1,92 +1,71 @@
-# Obsidian Sample Plugin
+# Wiz Folder Sync
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+仓库地址：`https://github.com/Shinku-Chen/obsidian-wiz-folder-sync`
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+`Wiz Folder Sync` 是一个 Obsidian 插件，用来把一个 vault 目录中的 Markdown 笔记、图片、语音和附件同步到为知笔记的某个分类。
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+当前实现支持：
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and outputs a Notice on click.
-- Registers a global interval which logs 'setInterval' to the console.
+- 只同步 vault 内的 `.md` 文件
+- 可配置 `双向同步` 或 `仅 Obsidian -> 为知`
+- 自动在目标分类下镜像子目录结构
+- 支持远端 `lite/markdown`、`collaboration`、`outline` 笔记同步到 Obsidian
+- 同步正文中的图片、语音和普通附件链接
+- 远端资源与附件会落到本地同名 `.assets/` 目录
+- 删除本地笔记时，把远端笔记移入回收站
+- 本地维护 `文件路径 -> docGuid` 映射，避免重复创建
+- 可选的保存后自动同步
+- 内置同步日志 / 调试面板
 
-## First time developing plugins?
+## 配置项
 
-Quick starting guide for new plugin devs:
+在插件设置页中需要填写：
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `src/main.ts` to `main.js`.
-- Make changes to `src/main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+- `Account server URL`
+  默认是 `https://note.wiz.cn`
+- `Wiz account`
+  为知账号，通常是邮箱
+- `Wiz password`
+  为了执行同步，密码会保存在插件数据里
+- `Source folder`
+  要同步的 vault 相对目录，留空表示整个 vault
+- `Target category`
+  为知目标分类，例如 `/My Notes/Obsidian Sync/`
+- `Sync mode`
+  选择双向同步，或只把本地改动推送到为知
+- `Auto sync on save`
+  保存 Markdown 后自动同步变更文件
+- `Auto sync debounce`
+  自动同步前的防抖时间，单位毫秒
 
-## Releasing new releases
+## 使用方式
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+1. 安装依赖：`npm install`
+2. 构建插件：`npm run build`
+3. 构建完成后，发布文件会出现在 `.build/wiz-folder-sync-obsidian/`
+4. 把 `.build/wiz-folder-sync-obsidian/` 里的 `main.js`、`manifest.json`、`styles.css` 放到 vault 的 `.obsidian/plugins/wiz-folder-sync-obsidian/`
+5. 在 Obsidian 中启用插件
+6. 打开设置页，填入为知账号、密码、源目录和目标分类
+7. 先执行 `Test WizNote connection`
+8. 再执行 `Sync folder to wiznote`
+9. 如果需要实时同步，打开 `Auto sync on save`
+10. 如需看详细过程，可打开 `Sync log panel`
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## 当前限制
 
-## Adding your plugin to the community plugin list
+- 目前使用个人知识库登录结果，不包含团队知识库切换
+- 密码保存在本地插件数据文件中，不是系统钥匙串
+- 远端 first-class attachment 会下载到本地 `.assets/` 目录，并通过插件维护区块挂到 Markdown 底部
+- 如果只修改附件文件本身、没有触发笔记保存，自动同步不会立刻触发
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## 构建产物
 
-## How to use
+- `manifest.json` 仍然保留在仓库根目录，作为源码清单
+- `npm run build` 会新建 `.build/wiz-folder-sync-obsidian/`，并把发布所需文件整理进去
+- `.build/` 是发布目录，不建议提交到 Git
 
-- Clone this repo.
-- Make sure your NodeJS is at least v18 (`node --version`).
-- `npm i` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## 后续可扩展方向
 
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code.
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-	"fundingUrl": "https://buymeacoffee.com"
-}
-```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-	"fundingUrl": {
-		"Buy Me a Coffee": "https://buymeacoffee.com",
-		"GitHub Sponsor": "https://github.com/sponsors",
-		"Patreon": "https://www.patreon.com/"
-	}
-}
-```
-
-## API Documentation
-
-See https://docs.obsidian.md
+- 使用系统钥匙串存储凭据
+- 支持团队知识库切换
+- 支持更细粒度的资源变更监听和增量哈希缓存

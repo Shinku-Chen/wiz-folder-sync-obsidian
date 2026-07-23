@@ -1,114 +1,531 @@
 import {
-	Editor,
-	MarkdownView,
-	MarkdownFileInfo,
-	Modal,
 	Notice,
 	Plugin,
+	TAbstractFile,
+	TFile,
+	TFolder,
 } from 'obsidian';
+import { registerCommands } from './commands';
+import { t } from './i18n';
 import {
 	DEFAULT_SETTINGS,
-	MyPluginSettings,
-	SampleSettingTab,
+	loadPersistedData,
+	type DebugLogEntry,
+	type DebugLogLevel,
+	type PluginState,
 } from './settings';
+import {
+	activateSyncLogView,
+	SYNC_LOG_VIEW_TYPE,
+	WizSyncLogView,
+} from './ui/log-view';
+import { WizFolderSyncSettingTab } from './ui/settings-tab';
+import {
+	listNestedCategories,
+	normalizeCategoryPath,
+	testWizConnection,
+	WizClient,
+} from './wiz/client';
+import {
+	isFileInSourceFolder,
+	syncFileToWiz,
+	syncFolderToWiz,
+} from './sync/service';
 
-// Remember to rename these classes and interfaces!
-
-export default class MyPlugin extends Plugin {
-	settings!: MyPluginSettings;
+export default class WizFolderSyncPlugin extends Plugin {
+	settings = { ...DEFAULT_SETTINGS };
+	state: PluginState = { records: {}, logs: [] };
+	private statusBarItemEl: HTMLElement | null = null;
+	private syncInFlight: Promise<void> | null = null;
+	private autoSyncTimer: number | null = null;
+	private pendingAutoSyncPaths = new Set<string>();
 
 	async onload() {
-		await this.loadSettings();
+		await this.loadPluginState();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		this.statusBarItemEl = this.addStatusBarItem();
+		this.setStatus(t('statusIdle'));
+		this.registerView(
+			SYNC_LOG_VIEW_TYPE,
+			(leaf) => new WizSyncLogView(leaf, this),
+		);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		registerCommands(this);
+		this.addSettingTab(new WizFolderSyncSettingTab(this.app, this));
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (
-				editor: Editor,
-				_ctx: MarkdownView | MarkdownFileInfo,
-			) => {
-				editor.replaceSelection('Sample editor command');
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+		this.registerEvent(
+			this.app.vault.on('rename', async (file, oldPath) => {
+				await this.handleRename(file, oldPath);
+			}),
+		);
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		this.registerEvent(
+			this.app.vault.on('delete', async (file) => {
+				if (file instanceof TFolder) {
+					await this.handleRemoteFolderDelete(file.path);
+					return;
 				}
-				return false;
-			},
-		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+				if (!(file instanceof TFile) || file.extension !== 'md') {
+					return;
+				}
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(activeDocument, 'click', (_evt: MouseEvent) => {
-			new Notice('Click');
-		});
+				const record = this.state.records[file.path];
+				if (!record) {
+					return;
+				}
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000),
+				await this.handleRemoteDelete(file.path, record.docGuid);
+			}),
+		);
+
+		this.registerEvent(
+			this.app.vault.on('modify', (file) => {
+				this.handleFileModify(file);
+			}),
 		);
 	}
 
-	onunload() {}
-
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<MyPluginSettings>,
-		);
+	onunload() {
+		this.clearAutoSyncTimer();
+		this.setStatus(t('statusStopped'));
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText('Woah!');
+	getDebugLogs(): DebugLogEntry[] {
+		return this.state.logs;
 	}
 
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
+	async runSyncCommand() {
+		if (this.syncInFlight) {
+			new Notice(t('noticeSyncRunning'));
+			return this.syncInFlight;
+		}
+
+		this.appendLog('info', 'sync', 'Manual sync started');
+		this.syncInFlight = this.performSync();
+
+		try {
+			await this.syncInFlight;
+		} finally {
+			this.syncInFlight = null;
+		}
+	}
+
+	async testConnectionCommand() {
+		try {
+			this.setStatus(t('statusTestingConnection'));
+			this.appendLog('info', 'connection', 'Testing Wiz connection');
+			const summary = await testWizConnection(this.settings);
+			new Notice(summary, 8000);
+			this.setStatus(t('statusConnectionOk'));
+			this.appendLog('info', 'connection', summary);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.setStatus(t('statusConnectionFailed'));
+			new Notice(t('noticeConnectionFailed', { message }), 10000);
+			this.appendLog('error', 'connection', 'Wiz connection failed', message);
+			throw error;
+		}
+	}
+
+	async savePluginState() {
+		await this.saveData({
+			settings: this.settings,
+			state: this.state,
+		});
+	}
+
+	async clearSyncState() {
+		this.state = { records: {}, logs: this.state.logs };
+		this.appendLog('info', 'state', 'Sync mapping cleared');
+		await this.savePluginState();
+	}
+
+	async clearDebugLogs() {
+		this.state.logs = [];
+		await this.savePluginState();
+		this.refreshSyncLogView();
+		new Notice(t('noticeLogsCleared'));
+	}
+
+	async openSyncLogView() {
+		await activateSyncLogView(this);
+	}
+
+	setStatus(text: string) {
+		this.statusBarItemEl?.setText(text);
+	}
+
+	private async loadPluginState() {
+		const persisted = loadPersistedData(await this.loadData());
+		this.settings = persisted.settings;
+		this.state = persisted.state;
+	}
+
+	private async performSync() {
+		try {
+			this.setStatus(t('statusSyncingFolder'));
+			const result = await syncFolderToWiz({
+				app: this.app,
+				settings: this.settings,
+				state: this.state,
+				onProgress: (message) => this.setStatus(message),
+				onLog: (entry) =>
+					this.appendLog(
+						entry.level ?? 'info',
+						entry.scope ?? 'sync',
+						entry.message,
+						entry.detail,
+					),
+				saveState: async () => {
+					await this.savePluginState();
+				},
+			});
+
+			const summary = t('noticeSyncSummary', {
+				created: result.created,
+				updated: result.updated,
+				skipped: result.skipped,
+				failed: result.failed,
+			});
+			this.setStatus(summary);
+			new Notice(summary, 10000);
+			this.appendLog('info', 'sync', summary);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.setStatus(t('statusSyncFailed'));
+			new Notice(t('noticeSyncFailed', { message }), 12000);
+			this.appendLog('error', 'sync', 'Folder sync failed', message);
+			throw error;
+		}
+	}
+
+	private handleFileModify(file: TAbstractFile) {
+		if (!(file instanceof TFile) || file.extension !== 'md') {
+			return;
+		}
+
+		if (!this.settings.autoSyncOnSave) {
+			return;
+		}
+
+		const sourceFolder = this.settings.sourceFolder
+			.trim()
+			.replace(/^\/+/, '')
+			.replace(/\/+$/, '');
+		if (!isFileInSourceFolder(file.path, sourceFolder)) {
+			return;
+		}
+
+		this.pendingAutoSyncPaths.add(file.path);
+		this.appendLog('info', 'watch', `Queued auto sync for ${file.path}`);
+		this.scheduleAutoSync();
+	}
+
+	private async handleRename(file: TAbstractFile, oldPath: string) {
+		if (file instanceof TFolder) {
+			await this.handleFolderRename(file, oldPath);
+			return;
+		}
+
+		if (!(file instanceof TFile) || file.extension !== 'md') {
+			return;
+		}
+
+		const record = this.state.records[oldPath];
+		if (!record) {
+			return;
+		}
+
+		delete this.state.records[oldPath];
+		this.state.records[file.path] = {
+			...record,
+			fileMtime: 0,
+		};
+		this.appendLog('info', 'vault', `Renamed note ${oldPath} -> ${file.path}`);
+		await this.savePluginState();
+	}
+
+	private async handleFolderRename(folder: TFolder, oldPath: string) {
+		const oldPrefix = `${oldPath}/`;
+		const newPrefix = `${folder.path}/`;
+		let changed = false;
+
+		for (const path of Object.keys(this.state.records)) {
+			if (!path.startsWith(oldPrefix)) {
+				continue;
+			}
+
+			const record = this.state.records[path];
+			if (!record) {
+				continue;
+			}
+
+			const nextPath = `${newPrefix}${path.slice(oldPrefix.length)}`;
+			this.state.records[nextPath] = {
+				...record,
+				fileMtime: 0,
+			};
+			delete this.state.records[path];
+			changed = true;
+		}
+
+		if (changed) {
+			this.appendLog('info', 'vault', `Renamed folder ${oldPath} -> ${folder.path}`);
+			await this.savePluginState();
+		}
+	}
+
+	private async handleRemoteDelete(path: string, docGuid: string) {
+		try {
+			this.setStatus(t('statusDeletingRemote'));
+			const client = await WizClient.login(this.settings);
+			await client.deleteNote(docGuid);
+			delete this.state.records[path];
+			await this.savePluginState();
+			this.setStatus(t('statusIdle'));
+			this.appendLog('info', 'delete', `Moved remote note to trash for ${path}`);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			new Notice(t('noticeRemoteDeleteFailed', { message }), 10000);
+			this.appendLog('error', 'delete', `Failed to trash remote note for ${path}`, message);
+			throw error;
+		}
+	}
+
+	private async handleRemoteFolderDelete(folderPath: string) {
+		const sourceFolder = this.normalizeSourceFolder();
+		if (!isFileInSourceFolder(folderPath, sourceFolder)) {
+			return;
+		}
+
+		try {
+			this.setStatus(t('statusDeletingRemoteFolder'));
+			const client = await WizClient.login(this.settings);
+			const categories = await client.getCategories();
+			const remoteRootCategory = this.buildRemoteCategoryForFolder(
+				folderPath,
+				sourceFolder,
+			);
+			const remoteCategories = listNestedCategories(
+				categories,
+				remoteRootCategory,
+			);
+			const docGuids = new Set<string>();
+
+			for (const category of remoteCategories) {
+				const notes = await client.listCategoryNotes(category);
+				for (const note of notes) {
+					docGuids.add(note.docGuid);
+				}
+			}
+
+			for (const docGuid of docGuids) {
+				await client.deleteNote(docGuid);
+			}
+
+			this.deleteStateRecordsUnderFolder(folderPath);
+			this.clearPendingAutoSyncForFolder(folderPath);
+			await this.savePluginState();
+			this.setStatus(t('statusIdle'));
+			this.appendLog(
+				'info',
+				'delete',
+				`Moved remote folder subtree to trash for ${folderPath}`,
+			);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			new Notice(t('noticeRemoteFolderDeleteFailed', { message }), 10000);
+			this.appendLog(
+				'error',
+				'delete',
+				`Failed to trash remote folder subtree for ${folderPath}`,
+				message,
+			);
+			throw error;
+		}
+	}
+
+	private deleteStateRecordsUnderFolder(folderPath: string) {
+		const prefix = `${folderPath}/`;
+		for (const path of Object.keys(this.state.records)) {
+			if (path.startsWith(prefix)) {
+				delete this.state.records[path];
+			}
+		}
+	}
+
+	private clearPendingAutoSyncForFolder(folderPath: string) {
+		const prefix = `${folderPath}/`;
+		for (const path of [...this.pendingAutoSyncPaths]) {
+			if (path.startsWith(prefix)) {
+				this.pendingAutoSyncPaths.delete(path);
+			}
+		}
+	}
+
+	private normalizeSourceFolder(): string {
+		return this.settings.sourceFolder
+			.trim()
+			.replace(/^\/+/, '')
+			.replace(/\/+$/, '');
+	}
+
+	private buildRemoteCategoryForFolder(
+		folderPath: string,
+		sourceFolder: string,
+	): string {
+		const targetCategory = normalizeCategoryPath(this.settings.targetCategory);
+		if (!sourceFolder || folderPath !== sourceFolder) {
+			const relativePath = sourceFolder
+				? folderPath.slice(sourceFolder.length + 1)
+				: folderPath;
+			if (relativePath) {
+				return normalizeCategoryPath(`${targetCategory}${relativePath}`);
+			}
+		}
+
+		return targetCategory;
+	}
+
+	private scheduleAutoSync() {
+		this.clearAutoSyncTimer();
+		this.autoSyncTimer = window.setTimeout(() => {
+			void this.flushAutoSyncQueue();
+		}, this.getAutoSyncDebounceMs());
+	}
+
+	private clearAutoSyncTimer() {
+		if (this.autoSyncTimer !== null) {
+			window.clearTimeout(this.autoSyncTimer);
+			this.autoSyncTimer = null;
+		}
+	}
+
+	private getAutoSyncDebounceMs(): number {
+		const value = this.settings.autoSyncDebounceMs;
+		if (!Number.isFinite(value)) {
+			return DEFAULT_SETTINGS.autoSyncDebounceMs;
+		}
+
+		return Math.max(300, Math.min(30000, Math.round(value)));
+	}
+
+	private async flushAutoSyncQueue() {
+		this.autoSyncTimer = null;
+		if (this.pendingAutoSyncPaths.size === 0) {
+			return;
+		}
+
+		if (this.syncInFlight) {
+			this.scheduleAutoSync();
+			return;
+		}
+
+		const paths = [...this.pendingAutoSyncPaths];
+		this.pendingAutoSyncPaths.clear();
+
+		this.syncInFlight = this.performAutoSync(paths);
+		try {
+			await this.syncInFlight;
+		} finally {
+			this.syncInFlight = null;
+			if (this.pendingAutoSyncPaths.size > 0) {
+				this.scheduleAutoSync();
+			}
+		}
+	}
+
+	private async performAutoSync(paths: string[]) {
+		let created = 0;
+		let updated = 0;
+		let skipped = 0;
+		let failed = 0;
+
+		for (const path of paths) {
+			const file = this.app.vault.getAbstractFileByPath(path);
+			if (!(file instanceof TFile) || file.extension !== 'md') {
+				continue;
+			}
+
+			try {
+				this.setStatus(t('statusAutoSyncing', { path: file.path }));
+				this.appendLog('info', 'autosync', `Auto syncing ${file.path}`);
+				const outcome = await syncFileToWiz({
+					app: this.app,
+					settings: this.settings,
+					state: this.state,
+					file,
+					onLog: (entry) =>
+						this.appendLog(
+							entry.level ?? 'info',
+							entry.scope ?? 'autosync',
+							entry.message,
+							entry.detail,
+						),
+					saveState: async () => {
+						await this.savePluginState();
+					},
+				});
+
+				if (outcome === 'created') {
+					created += 1;
+				} else if (outcome === 'updated') {
+					updated += 1;
+				} else {
+					skipped += 1;
+				}
+			} catch (error) {
+				failed += 1;
+				console.error(`[wiz-folder-sync] Auto sync failed for ${path}`, error);
+				this.appendLog(
+					'error',
+					'autosync',
+					`Auto sync failed for ${path}`,
+					error instanceof Error ? error.message : String(error),
+				);
+			}
+		}
+
+		const summary = t('noticeAutoSyncSummary', {
+			created,
+			updated,
+			skipped,
+			failed,
+		});
+		this.setStatus(summary);
+		this.appendLog('info', 'autosync', summary);
+		if (failed > 0) {
+			new Notice(summary, 10000);
+		}
+	}
+
+	appendLog(
+		level: DebugLogLevel,
+		scope: string,
+		message: string,
+		detail?: string,
+	) {
+		const entry: DebugLogEntry = {
+			id: `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+			at: new Date().toISOString(),
+			level,
+			scope,
+			message,
+			detail,
+		};
+		this.state.logs = [...this.state.logs, entry].slice(-300);
+		this.refreshSyncLogView();
+	}
+
+	private refreshSyncLogView() {
+		this.app.workspace
+			.getLeavesOfType(SYNC_LOG_VIEW_TYPE)
+			.forEach((leaf) => {
+				const view = leaf.view;
+				if (view instanceof WizSyncLogView) {
+					view.refresh();
+				}
+			});
 	}
 }

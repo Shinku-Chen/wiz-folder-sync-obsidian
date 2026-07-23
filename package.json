@@ -1,12 +1,17 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-wiz-folder-sync",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
-	"main": "main.js",
+	"description": "Sync Obsidian notes, folders, and assets with WizNote.",
+	"main": ".build/wiz-folder-sync-obsidian/main.js",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Shinku-Chen/obsidian-wiz-folder-sync"
+	},
+	"homepage": "https://github.com/Shinku-Chen/obsidian-wiz-folder-sync",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && node scripts/prepare-build.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},

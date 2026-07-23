@@ -5,8 +5,11 @@ import { globalIgnores, defineConfig } from 'eslint/config';
 export default defineConfig(
 	globalIgnores([
 		'node_modules',
+		'build',
+		'.build',
 		'dist',
 		'esbuild.config.mjs',
+		'scripts/prepare-build.mjs',
 		'version-bump.mjs',
 		'versions.json',
 		'main.js',
