@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`manifest.json`、`README.md`、`src/i18n.ts`、`src/main.ts`、`src/sync/assets.ts`、`AGENTS.md`、`CHANGELOG.md`
+- 摘要：统一记录并使用产品名对应关系：中文写“为知笔记”，英文写 `WizNote`。
+
 - 影响文件：`src/sync/service.ts`、`src/main.ts`、`src/wiz/client.ts`、`src/i18n.ts`、`src/ui/settings-tab.ts`、`README.md`、`AGENTS.md`、`CHANGELOG.md`
 - 摘要：允许目标分类留空；留空时同步为知笔记中 `/Deleted Items/` 以外的全部目录。
 

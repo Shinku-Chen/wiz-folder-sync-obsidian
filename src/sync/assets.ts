@@ -195,7 +195,7 @@ function appendManagedAttachmentsSection(
 
 	const sectionLines = [
 		ATTACHMENTS_START,
-		'## Wiz attachments',
+		'## WizNote attachments',
 		...paths.map((path) => `- [${basename(path)}](${path})`),
 		ATTACHMENTS_END,
 	];

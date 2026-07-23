@@ -1,13 +1,13 @@
-# Wiz Folder Sync
+# WizNote Folder Sync
 
 仓库地址：`https://github.com/Shinku-Chen/wiz-folder-sync-obsidian`
 
-`Wiz Folder Sync` 是一个 Obsidian 插件，用来把一个 vault 目录中的 Markdown 笔记、图片、语音和附件同步到为知笔记的某个分类。
+`WizNote Folder Sync` 是一个 Obsidian 插件，用来把一个 vault 目录中的 Markdown 笔记、图片、语音和附件同步到为知笔记的某个分类。
 
 当前实现支持：
 
 - 只同步 vault 内的 `.md` 文件
-- 可配置 `双向同步` 或 `仅 Obsidian -> 为知`
+- 可配置 `双向同步` 或 `仅 Obsidian -> 为知笔记`
 - 自动在目标分类下镜像子目录结构
 - 支持远端 `lite/markdown`、`collaboration`、`outline` 笔记同步到 Obsidian
 - 同步正文中的图片、语音和普通附件链接
@@ -23,9 +23,9 @@
 
 - `Account server URL`
   默认是 `https://note.wiz.cn`
-- `Wiz account`
+- `WizNote account`
   为知账号，通常是邮箱
-- `Wiz password`
+- `WizNote password`
   为了执行同步，密码会保存在插件数据里
 - `Source folder`
   要同步的 vault 相对目录，留空表示整个 vault
@@ -47,7 +47,7 @@
 5. 在 Obsidian 中启用插件
 6. 打开设置页，填入为知账号、密码、源目录和目标分类；如果目标分类留空，则同步 `/Deleted Items/` 以外的全部目录
 7. 先执行 `Test WizNote connection`
-8. 再执行 `Sync folder to wiznote`
+8. 再执行 `Sync folder to WizNote`
 9. 如果需要实时同步，打开 `Auto sync on save`
 10. 如需看详细过程，可打开 `Sync log panel`
 

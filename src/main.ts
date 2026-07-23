@@ -124,7 +124,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 			this.appendLog(
 				'info',
 				'connection',
-				'Testing Wiz connection',
+				'Testing WizNote connection',
 				formatLogDetail([
 					['accountBaseUrl', this.settings.accountBaseUrl],
 					['userId', this.settings.userId],
@@ -151,7 +151,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 			this.appendLog(
 				'error',
 				'connection',
-				'Wiz connection failed',
+				'WizNote connection failed',
 				formatLogDetail([
 					['accountBaseUrl', this.settings.accountBaseUrl],
 					['userId', this.settings.userId],
@@ -321,7 +321,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 			this.appendLog(
 				'info',
 				trigger,
-				`Skipped ${trigger} sync because Wiz sync is not fully configured`,
+				`Skipped ${trigger} sync because WizNote sync is not fully configured`,
 				formatLogDetail([
 					['accountBaseUrl', this.settings.accountBaseUrl],
 					['userId', this.settings.userId],
