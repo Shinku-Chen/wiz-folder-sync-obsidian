@@ -2,7 +2,7 @@
 
 仓库地址：`https://github.com/Shinku-Chen/wiz-folder-sync-obsidian`
 
-`WizNote Folder Sync` 是一个 Obsidian 社区插件，用来把 Obsidian vault 中指定目录下的 Markdown 笔记、目录结构和相关资源同步到为知笔记。
+`WizNote Folder Sync` 是一个面向为知笔记 `WizNote` 的 Obsidian 同步插件，用来把 Obsidian vault 中指定目录下的 Markdown 笔记、目录结构和相关资源同步到为知笔记。
 
 当前实现支持：
 

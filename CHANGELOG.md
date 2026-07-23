@@ -7,6 +7,9 @@
 ### 2026-07-23
 
 - 影响文件：`README.md`、`CHANGELOG.md`
+- 摘要：补充 README 顶部产品定位，明确这是为知笔记 `WizNote` 的 Obsidian 同步插件。
+
+- 影响文件：`README.md`、`CHANGELOG.md`
 - 摘要：更新 README，使其与当前 `1.0.1` 的同步模式、持久化方式、日志行为和发布产物规则保持一致。
 
 - 影响文件：`.github/workflows/release.yml`、`CHANGELOG.md`
