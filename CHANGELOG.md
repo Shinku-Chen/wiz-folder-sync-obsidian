@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`AGENTS.md`、`src/main.ts`、`src/settings.ts`、`src/persistence.ts`、`src/i18n.ts`、`CHANGELOG.md`
+- 摘要：把插件持久化拆分为账号、同步、日志三个独立文件；密码改为本地加密存储，并在升级时自动迁移旧 `data.json`。
+
 - 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
 - 摘要：把冲突笔记的本地命名改为 `标题[短 docGuid].md`；短后缀插入到 `.md` 前面，避免失去 markdown 扩展名并连带消除资源目录冲突。
 

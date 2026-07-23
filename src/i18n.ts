@@ -37,7 +37,7 @@ const translations = {
 		headingSync: 'Sync',
 		headingDebug: 'Debug',
 		settingsIntro:
-			'Sync Markdown files from one vault folder into a WizNote category. Password is stored locally in the plugin data file and is not encrypted.',
+			'Sync Markdown files from one vault folder into a WizNote category. Account data, sync data, and logs are stored separately in the plugin folder. Password is encrypted before it is written locally.',
 		settingAccountServerName: 'Account server URL',
 		settingAccountServerDesc:
 			'Default is HTTPS://note.wiz.cn. Change this only for private deployments.',
@@ -45,7 +45,17 @@ const translations = {
 		settingWizAccountDesc: 'Your WizNote email or user ID.',
 		settingWizPasswordName: 'WizNote password',
 		settingWizPasswordDesc:
-			'Stored locally so the plugin can log in during sync.',
+			'Encrypted locally so the plugin can log in during sync.',
+		noticeStorageMigrated:
+			'Plugin data has been migrated into separate account, sync, and log files.',
+		noticePasswordUnavailable:
+			'The saved password could not be decrypted. Enter the password again in settings.',
+		logStorageMigrated:
+			'Migrated legacy plugin storage into split files',
+		logPasswordUnavailable:
+			'Stored password is unavailable and must be entered again',
+		logStorageFileInvalid:
+			'Stored plugin data file is invalid and has been ignored: {{fileName}}',
 		settingSourceFolderName: 'Source folder',
 		settingSourceFolderDesc:
 			'Vault-relative folder to sync. Leave empty to sync the whole vault.',
@@ -131,14 +141,21 @@ const translations = {
 		headingSync: '同步',
 		headingDebug: '调试',
 		settingsIntro:
-			'把一个库目录中的 Markdown 笔记同步到为知笔记分类。密码会保存在插件数据文件中，且不会加密。',
+			'把一个库目录中的 Markdown 笔记同步到为知笔记分类。账号信息、同步信息和日志会分开保存在插件目录中，密码写盘前会先在本地加密。',
 		settingAccountServerName: '账号服务器地址',
 		settingAccountServerDesc:
 			'默认使用 HTTPS://note.wiz.cn。只有私有化部署时才需要修改。',
 		settingWizAccountName: '为知账号',
 		settingWizAccountDesc: '填写你的为知邮箱或用户 ID。',
 		settingWizPasswordName: '为知密码',
-		settingWizPasswordDesc: '密码会保存在本地，用于执行同步登录。',
+		settingWizPasswordDesc: '密码会在本地加密保存，用于执行同步登录。',
+		noticeStorageMigrated:
+			'已把插件数据迁移为独立的账号、同步和日志文件。',
+		noticePasswordUnavailable:
+			'已保存的密码无法解密，请在设置中重新输入密码。',
+		logStorageMigrated: '已把旧插件存储迁移为分文件格式',
+		logPasswordUnavailable: '已保存的密码不可用，需要重新输入',
+		logStorageFileInvalid: '插件存储文件无效，已忽略：{{fileName}}',
 		settingSourceFolderName: '源目录',
 		settingSourceFolderDesc: '要同步的库内相对目录。留空表示同步整个 vault。',
 		settingTargetCategoryName: '目标分类',

@@ -9,9 +9,13 @@ import { registerCommands } from './commands';
 import { formatLogDetail } from './logging';
 import { t } from './i18n';
 import {
+	loadPluginStorage,
+	savePluginStorage,
+	type StorageWarning,
+} from './persistence';
+import {
 	DEFAULT_SETTINGS,
 	MAX_DEBUG_LOGS,
-	loadPersistedData,
 	type DebugLogEntry,
 	type DebugLogLevel,
 	type PluginState,
@@ -43,7 +47,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 	private pendingAutoSyncPaths = new Set<string>();
 
 	async onload() {
-		await this.loadPluginState();
+		const storageWarnings = await this.loadPluginState();
 
 		this.statusBarItemEl = this.addStatusBarItem();
 		this.setStatus(t('statusIdle'));
@@ -54,6 +58,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 
 		registerCommands(this);
 		this.addSettingTab(new WizFolderSyncSettingTab(this.app, this));
+		this.reportStorageWarnings(storageWarnings);
 
 		this.registerEvent(
 			this.app.vault.on('rename', async (file, oldPath) => {
@@ -165,7 +170,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 	}
 
 	async savePluginState() {
-		await this.saveData({
+		await savePluginStorage(this, {
 			settings: this.settings,
 			state: this.state,
 		});
@@ -192,10 +197,11 @@ export default class WizFolderSyncPlugin extends Plugin {
 		this.statusBarItemEl?.setText(text);
 	}
 
-	private async loadPluginState() {
-		const persisted = loadPersistedData(await this.loadData());
-		this.settings = persisted.settings;
-		this.state = persisted.state;
+	private async loadPluginState(): Promise<StorageWarning[]> {
+		const persisted = await loadPluginStorage(this);
+		this.settings = persisted.data.settings;
+		this.state = persisted.data.state;
+		return persisted.warnings;
 	}
 
 	private async performSync(options?: {
@@ -784,6 +790,38 @@ export default class WizFolderSyncPlugin extends Plugin {
 		};
 		this.state.logs = [...this.state.logs, entry].slice(-MAX_DEBUG_LOGS);
 		this.refreshSyncLogView();
+	}
+
+	private reportStorageWarnings(warnings: StorageWarning[]) {
+		for (const warning of warnings) {
+			const message = this.getStorageWarningMessage(warning);
+			const detail =
+				warning.detail || warning.fileName
+					? formatLogDetail([
+							['fileName', warning.fileName],
+							['detail', warning.detail],
+						])
+					: undefined;
+			this.appendLog(warning.level, 'storage', message, detail);
+			if (warning.code === 'legacy-migrated' || warning.code === 'password-unavailable') {
+				new Notice(message, 10000);
+			}
+		}
+	}
+
+	private getStorageWarningMessage(warning: StorageWarning): string {
+		switch (warning.code) {
+			case 'legacy-migrated':
+				return t('noticeStorageMigrated');
+			case 'password-unavailable':
+				return t('noticePasswordUnavailable');
+			case 'storage-file-invalid':
+				return t('logStorageFileInvalid', {
+					fileName: warning.fileName ?? 'unknown',
+				});
+			default:
+				return warning.code;
+		}
 	}
 
 	private refreshSyncLogView() {

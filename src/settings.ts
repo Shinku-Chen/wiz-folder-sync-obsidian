@@ -48,7 +48,7 @@ export interface PluginState {
 
 export const MAX_DEBUG_LOGS = 100;
 
-interface PersistedData {
+export interface PersistedData {
 	settings: WizFolderSyncSettings;
 	state: PluginState;
 }
