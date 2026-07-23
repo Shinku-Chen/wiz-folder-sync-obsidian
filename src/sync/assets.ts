@@ -306,24 +306,98 @@ async function collectRemoteResourceFiles(options: {
 	logger?: Logger;
 }): Promise<RemoteAssetFile[]> {
 	if (options.noteType === 'collaboration') {
-		const resources = await options.client.listCollaborationResources(options.docGuid);
+		let resources: Array<{ name: string; blockType: string }>;
+		try {
+			resources = await options.client.listCollaborationResources(options.docGuid);
+		} catch (error) {
+			options.logger?.(
+				'error',
+				'assets',
+				`Failed to list collaboration resources for ${options.docGuid}`,
+				formatAssetLogDetail([
+					['docGuid', options.docGuid],
+					['noteType', options.noteType],
+					['notePath', options.notePath],
+					['stage', 'listCollaborationResources'],
+					['error', error instanceof Error ? error.message : String(error)],
+				]),
+			);
+			throw error;
+		}
 		return await Promise.all(
-			resources.map(async (resource) => ({
-				name: resource.name,
-				data: await options.client.downloadCollaborationResource(
-					options.docGuid,
-					resource.name,
-				),
-			})),
+			resources.map(async (resource) => {
+				try {
+					return {
+						name: resource.name,
+						data: await options.client.downloadCollaborationResource(
+							options.docGuid,
+							resource.name,
+						),
+					};
+				} catch (error) {
+					options.logger?.(
+						'error',
+						'assets',
+						`Failed to download collaboration resource ${resource.name}`,
+						formatAssetLogDetail([
+							['docGuid', options.docGuid],
+							['noteType', options.noteType],
+							['notePath', options.notePath],
+							['stage', 'downloadCollaborationResource'],
+							['resourceName', resource.name],
+							['blockType', resource.blockType],
+							['error', error instanceof Error ? error.message : String(error)],
+						]),
+					);
+					throw error;
+				}
+			}),
 		);
 	}
 
-	const resources = await options.client.listNoteResources(options.docGuid);
+	let resources;
+	try {
+		resources = await options.client.listNoteResources(options.docGuid);
+	} catch (error) {
+		options.logger?.(
+			'error',
+			'assets',
+			`Failed to list remote resources for ${options.docGuid}`,
+			formatAssetLogDetail([
+				['docGuid', options.docGuid],
+				['noteType', options.noteType],
+				['notePath', options.notePath],
+				['stage', 'listNoteResources'],
+				['error', error instanceof Error ? error.message : String(error)],
+			]),
+		);
+		throw error;
+	}
 	return await Promise.all(
-		resources.map(async (resource) => ({
-			name: resource.name,
-			data: await options.client.downloadLegacyResource(resource.url),
-		})),
+		resources.map(async (resource) => {
+			try {
+				return {
+					name: resource.name,
+					data: await options.client.downloadLegacyResource(resource.url),
+				};
+			} catch (error) {
+				options.logger?.(
+					'error',
+					'assets',
+					`Failed to download remote resource ${resource.name}`,
+					formatAssetLogDetail([
+						['docGuid', options.docGuid],
+						['noteType', options.noteType],
+						['notePath', options.notePath],
+						['stage', 'downloadLegacyResource'],
+						['resourceName', resource.name],
+						['resourceUrl', resource.url],
+						['error', error instanceof Error ? error.message : String(error)],
+					]),
+				);
+				throw error;
+			}
+		}),
 	);
 }
 
@@ -336,15 +410,52 @@ async function collectRemoteAttachmentFiles(options: {
 	markdown: string;
 	logger?: Logger;
 }): Promise<RemoteAssetFile[]> {
-	const attachments = await options.client.listNoteAttachments(options.docGuid);
+	let attachments;
+	try {
+		attachments = await options.client.listNoteAttachments(options.docGuid);
+	} catch (error) {
+		options.logger?.(
+			'error',
+			'assets',
+			`Failed to list note attachments for ${options.docGuid}`,
+			formatAssetLogDetail([
+				['docGuid', options.docGuid],
+				['noteType', options.noteType],
+				['notePath', options.notePath],
+				['stage', 'listNoteAttachments'],
+				['error', error instanceof Error ? error.message : String(error)],
+			]),
+		);
+		throw error;
+	}
 	return await Promise.all(
-		attachments.map(async (attachment) => ({
-			name: attachment.name,
-			data: await options.client.downloadNoteAttachment(
-				options.docGuid,
-				attachment.attGuid,
-			),
-		})),
+		attachments.map(async (attachment) => {
+			try {
+				return {
+					name: attachment.name,
+					data: await options.client.downloadNoteAttachment(
+						options.docGuid,
+						attachment.attGuid,
+					),
+				};
+			} catch (error) {
+				options.logger?.(
+					'error',
+					'assets',
+					`Failed to download note attachment ${attachment.name}`,
+					formatAssetLogDetail([
+						['docGuid', options.docGuid],
+						['noteType', options.noteType],
+						['notePath', options.notePath],
+						['stage', 'downloadNoteAttachment'],
+						['attachmentName', attachment.name],
+						['attGuid', attachment.attGuid],
+						['error', error instanceof Error ? error.message : String(error)],
+					]),
+				);
+				throw error;
+			}
+		}),
 	);
 }
 
@@ -533,4 +644,13 @@ function escapeForRegex(value: string): string {
 
 function isExternalTarget(target: string): boolean {
 	return /^(https?:|mailto:|data:|#|ftp:|obsidian:)/i.test(target);
+}
+
+function formatAssetLogDetail(
+	entries: Array<[string, string | number | undefined]>,
+): string {
+	return entries
+		.filter(([, value]) => value !== undefined && value !== '')
+		.map(([key, value]) => `${key}: ${String(value)}`)
+		.join('\n');
 }

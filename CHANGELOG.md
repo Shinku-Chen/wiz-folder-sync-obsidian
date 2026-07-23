@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`src/sync/assets.ts`、`src/sync/service.ts`、`CHANGELOG.md`
+- 摘要：补充远端资源同步诊断日志，区分正文读取、资源列表和单个资源/附件下载失败。
+
 - 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
 - 摘要：修正基于修改时间的单文件同步跳过判断，减少自动同步中的不必要更新。
 

@@ -808,17 +808,51 @@ async function createLocalFileFromRemote(
 	context: RemoteReconcileContext,
 	path: string,
 ): Promise<TFile> {
-	const remote = await context.client.readRemoteNote(context.remoteNote.docGuid);
-	const markdown = await materializeRemoteAssets({
-		app: context.app,
-		client: context.client,
-		docGuid: context.remoteNote.docGuid,
-		noteType: context.remoteNote.type,
-		notePath: path,
-		markdown: remote.markdown,
-		logger: (level, scope, message, detail) =>
-			context.onLog?.({ level, scope, message, detail }),
-	});
+	let remote;
+	try {
+		remote = await context.client.readRemoteNote(context.remoteNote.docGuid);
+	} catch (error) {
+		context.onLog?.({
+			level: 'error',
+			scope: 'assets',
+			message: `Failed to read remote note body ${context.remoteNote.docGuid}`,
+			detail: formatLogDetail([
+				['docGuid', context.remoteNote.docGuid],
+				['remoteType', context.remoteNote.type],
+				['desiredPath', path],
+				['stage', 'readRemoteNote'],
+				['error', error instanceof Error ? error.message : String(error)],
+			]),
+		});
+		throw error;
+	}
+	let markdown;
+	try {
+		markdown = await materializeRemoteAssets({
+			app: context.app,
+			client: context.client,
+			docGuid: context.remoteNote.docGuid,
+			noteType: context.remoteNote.type,
+			notePath: path,
+			markdown: remote.markdown,
+			logger: (level, scope, message, detail) =>
+				context.onLog?.({ level, scope, message, detail }),
+		});
+	} catch (error) {
+		context.onLog?.({
+			level: 'error',
+			scope: 'assets',
+			message: `Failed to materialize remote assets for ${context.remoteNote.docGuid}`,
+			detail: formatLogDetail([
+				['docGuid', context.remoteNote.docGuid],
+				['remoteType', context.remoteNote.type],
+				['desiredPath', path],
+				['stage', 'materializeRemoteAssets'],
+				['error', error instanceof Error ? error.message : String(error)],
+			]),
+		});
+		throw error;
+	}
 	await ensureLocalFolderExists(context.app, parentFolderOf(path));
 	const created = await context.app.vault.create(path, markdown);
 	context.state.records[path] = createRecordFromRemote(
@@ -851,17 +885,51 @@ async function writeRemoteToLocal(
 		target = await moveLocalFile(context.app, file, desiredPath);
 	}
 
-	const remote = await context.client.readRemoteNote(context.remoteNote.docGuid);
-	const markdown = await materializeRemoteAssets({
-		app: context.app,
-		client: context.client,
-		docGuid: context.remoteNote.docGuid,
-		noteType: context.remoteNote.type,
-		notePath: target.path,
-		markdown: remote.markdown,
-		logger: (level, scope, message, detail) =>
-			context.onLog?.({ level, scope, message, detail }),
-	});
+	let remote;
+	try {
+		remote = await context.client.readRemoteNote(context.remoteNote.docGuid);
+	} catch (error) {
+		context.onLog?.({
+			level: 'error',
+			scope: 'assets',
+			message: `Failed to read remote note body ${context.remoteNote.docGuid}`,
+			detail: formatLogDetail([
+				['docGuid', context.remoteNote.docGuid],
+				['remoteType', context.remoteNote.type],
+				['desiredPath', target.path],
+				['stage', 'readRemoteNote'],
+				['error', error instanceof Error ? error.message : String(error)],
+			]),
+		});
+		throw error;
+	}
+	let markdown;
+	try {
+		markdown = await materializeRemoteAssets({
+			app: context.app,
+			client: context.client,
+			docGuid: context.remoteNote.docGuid,
+			noteType: context.remoteNote.type,
+			notePath: target.path,
+			markdown: remote.markdown,
+			logger: (level, scope, message, detail) =>
+				context.onLog?.({ level, scope, message, detail }),
+		});
+	} catch (error) {
+		context.onLog?.({
+			level: 'error',
+			scope: 'assets',
+			message: `Failed to materialize remote assets for ${context.remoteNote.docGuid}`,
+			detail: formatLogDetail([
+				['docGuid', context.remoteNote.docGuid],
+				['remoteType', context.remoteNote.type],
+				['desiredPath', target.path],
+				['stage', 'materializeRemoteAssets'],
+				['error', error instanceof Error ? error.message : String(error)],
+			]),
+		});
+		throw error;
+	}
 	await context.app.vault.modify(target, markdown);
 	const refreshed = getFileByPath(context.app, target.path);
 	context.state.records[refreshed.path] = createRecordFromRemote(
