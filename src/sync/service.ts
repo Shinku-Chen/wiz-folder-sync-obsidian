@@ -47,11 +47,29 @@ export async function syncFolderToWiz(
 	const client = await WizClient.login(context.settings);
 	const existingCategories = await client.getCategories();
 	await ensureCategoryExists(client, existingCategories, targetCategory);
+	await ensureRemoteFolderStructure(
+		context.app,
+		client,
+		existingCategories,
+		sourceFolder,
+		targetCategory,
+		context.onLog,
+	);
 	const remoteNotes =
 		context.settings.syncMode === 'bidirectional'
 			? await collectRemoteNotes(client, existingCategories, targetCategory)
 			: [];
 	const remoteByDocGuid = new Map(remoteNotes.map((note) => [note.docGuid, note]));
+
+	if (context.settings.syncMode === 'bidirectional') {
+		await ensureLocalFolderStructure(
+			context.app,
+			sourceFolder,
+			targetCategory,
+			listNestedCategories(existingCategories, targetCategory),
+			context.onLog,
+		);
+	}
 
 	const files = collectMarkdownFiles(context.app, sourceFolder);
 	const localByPath = new Map(files.map((file) => [file.path, file]));
@@ -219,6 +237,18 @@ function collectMarkdownFiles(app: App, sourceFolder: string): TFile[] {
 		.sort((left, right) => left.path.localeCompare(right.path));
 }
 
+function collectFolders(app: App, sourceFolder: string): TFolder[] {
+	return app.vault
+		.getAllLoadedFiles()
+		.filter(
+			(file): file is TFolder =>
+				file instanceof TFolder &&
+				file.path.length > 0 &&
+				isInSourceFolder(file.path, sourceFolder),
+		)
+		.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 function normalizeSourceFolder(folder: string): string {
 	return folder
 		.trim()
@@ -290,6 +320,54 @@ async function ensureCategoryExists(
 	}
 }
 
+async function ensureRemoteFolderStructure(
+	app: App,
+	client: WizClient,
+	knownCategories: Set<string>,
+	sourceFolder: string,
+	targetCategory: string,
+	onLog?: SyncContext['onLog'],
+) {
+	const folders = collectFolders(app, sourceFolder);
+	for (const folder of folders) {
+		const remoteCategory = buildRemoteCategoryForFolder(
+			targetCategory,
+			sourceFolder,
+			folder.path,
+		);
+		await ensureCategoryExists(client, knownCategories, remoteCategory);
+		onLog?.({
+			scope: 'folder',
+			message: `Ensured remote category ${remoteCategory} for ${folder.path}`,
+		});
+	}
+}
+
+async function ensureLocalFolderStructure(
+	app: App,
+	sourceFolder: string,
+	targetCategory: string,
+	remoteCategories: string[],
+	onLog?: SyncContext['onLog'],
+) {
+	for (const remoteCategory of remoteCategories) {
+		const localFolder = buildLocalFolderPathFromRemoteCategory(
+			sourceFolder,
+			targetCategory,
+			remoteCategory,
+		);
+		if (!localFolder) {
+			continue;
+		}
+
+		await ensureLocalFolderExists(app, localFolder);
+		onLog?.({
+			scope: 'folder',
+			message: `Ensured local folder ${localFolder} for ${remoteCategory}`,
+		});
+	}
+}
+
 function buildRemoteCategory(
 	targetCategory: string,
 	sourceFolder: string,
@@ -306,6 +384,25 @@ function buildRemoteCategory(
 	}
 
 	return normalizeCategoryPath(`${targetCategory}${segments.join('/')}`);
+}
+
+function buildRemoteCategoryForFolder(
+	targetCategory: string,
+	sourceFolder: string,
+	folderPath: string,
+): string {
+	if (sourceFolder && folderPath === sourceFolder) {
+		return targetCategory;
+	}
+
+	const relativePath = sourceFolder
+		? folderPath.slice(sourceFolder.length + 1)
+		: folderPath;
+	if (!relativePath) {
+		return targetCategory;
+	}
+
+	return normalizeCategoryPath(`${targetCategory}${relativePath}`);
 }
 
 function createRecord(
@@ -663,6 +760,31 @@ function buildLocalPathFromRemote(
 	const pathSegments = sourceFolder
 		? [sourceFolder, ...relativeSegments, normalizedTitle]
 		: [...relativeSegments, normalizedTitle];
+
+	return normalizePath(pathSegments.filter(Boolean).join('/'));
+}
+
+function buildLocalFolderPathFromRemoteCategory(
+	sourceFolder: string,
+	targetCategory: string,
+	remoteCategory: string,
+): string {
+	const rootSegments = normalizeCategoryPath(targetCategory)
+		.split('/')
+		.filter(Boolean);
+	const remoteSegments = normalizeCategoryPath(remoteCategory)
+		.split('/')
+		.filter(Boolean);
+
+	const relativeSegments =
+		remoteSegments.length >= rootSegments.length &&
+		rootSegments.every((segment, index) => remoteSegments[index] === segment)
+			? remoteSegments.slice(rootSegments.length)
+			: remoteSegments;
+
+	const pathSegments = sourceFolder
+		? [sourceFolder, ...relativeSegments]
+		: [...relativeSegments];
 
 	return normalizePath(pathSegments.filter(Boolean).join('/'));
 }
