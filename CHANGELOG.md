@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
+- 摘要：修正基于修改时间的单文件同步跳过判断，减少自动同步中的不必要更新。
+
 - 影响文件：`manifest.json`、`README.md`、`src/i18n.ts`、`src/main.ts`、`src/sync/assets.ts`、`AGENTS.md`、`CHANGELOG.md`
 - 摘要：统一记录并使用产品名对应关系：中文写“为知笔记”，英文写 `WizNote`。
 

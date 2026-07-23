@@ -557,7 +557,6 @@ async function syncMarkdownFile(
 	if (
 		record &&
 		record.fileMtime === context.file.stat.mtime &&
-		record.remoteModified === context.file.stat.mtime &&
 		record.remoteCategory === remoteCategory &&
 		record.remoteTitle === remoteTitle &&
 		record.remoteType === 'lite/markdown'
