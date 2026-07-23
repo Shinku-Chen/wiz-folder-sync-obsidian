@@ -4,12 +4,14 @@ import {
 	MAX_DEBUG_LOGS,
 	loadPersistedData,
 	type PersistedData,
+	type DebugLogEntry,
 	type WizFolderSyncSettings,
 } from './settings';
 
 const ACCOUNT_FILE = 'account.json';
 const SYNC_FILE = 'sync.json';
-const LOGS_FILE = 'logs.json';
+const LOGS_FILE = 'logs.log';
+const LEGACY_LOGS_FILE = 'logs.json';
 const KEY_FILE = 'account.key.json';
 const LEGACY_DATA_FILE = 'data.json';
 const PASSWORD_SCHEME = 'aes-gcm-v1';
@@ -38,10 +40,6 @@ interface StoredSyncData {
 	autoSyncOnSave?: unknown;
 	autoSyncDebounceMs?: unknown;
 	records?: unknown;
-}
-
-interface StoredLogsData {
-	logs?: unknown;
 }
 
 export interface StorageWarning {
@@ -107,13 +105,12 @@ export async function savePluginStorage(
 			autoSyncDebounceMs: data.settings.autoSyncDebounceMs,
 			records: data.state.records,
 		}),
-		writeJsonFile(plugin, LOGS_FILE, {
-			logs: data.state.logs.slice(-MAX_DEBUG_LOGS),
-		}),
+		writeLogFile(plugin, LOGS_FILE, data.state.logs.slice(-MAX_DEBUG_LOGS)),
 	]);
 
 	await plugin.saveData({});
 	await removeLegacyDataFile(plugin);
+	await removeStorageFile(plugin, LEGACY_LOGS_FILE);
 }
 
 function hasPersistedContent(data: PersistedData): boolean {
@@ -135,23 +132,26 @@ async function loadSplitPersistedData(
 	plugin: Plugin,
 	warnings: StorageWarning[],
 ): Promise<PersistedData | null> {
-	const [hasAccount, hasSync, hasLogs] = await Promise.all([
+	const [hasAccount, hasSync, hasLogs, hasLegacyLogs] = await Promise.all([
 		hasStorageFile(plugin, ACCOUNT_FILE),
 		hasStorageFile(plugin, SYNC_FILE),
 		hasStorageFile(plugin, LOGS_FILE),
+		hasStorageFile(plugin, LEGACY_LOGS_FILE),
 	]);
-	if (!hasAccount && !hasSync && !hasLogs) {
+	if (!hasAccount && !hasSync && !hasLogs && !hasLegacyLogs) {
 		return null;
 	}
 
-	const [accountRaw, syncRaw, logsRaw] = await Promise.all([
+	const [accountRaw, syncRaw, rawLogs, legacyLogsRaw] = await Promise.all([
 		readJsonFile<StoredAccountData>(plugin, ACCOUNT_FILE, warnings),
 		readJsonFile<StoredSyncData>(plugin, SYNC_FILE, warnings),
-		readJsonFile<StoredLogsData>(plugin, LOGS_FILE, warnings),
+		readLogFile(plugin, LOGS_FILE, warnings),
+		readJsonFile<{ logs?: unknown }>(plugin, LEGACY_LOGS_FILE, warnings),
 	]);
+	const logs = rawLogs ?? normalizeLegacyLogs(legacyLogsRaw?.logs);
 
 	const decryptedPassword = await loadStoredPassword(plugin, accountRaw?.password, warnings);
-	return loadPersistedData({
+	const persisted = loadPersistedData({
 		settings: {
 			accountBaseUrl:
 				typeof accountRaw?.accountBaseUrl === 'string'
@@ -172,9 +172,14 @@ async function loadSplitPersistedData(
 		},
 		state: {
 			records: asRecord(syncRaw?.records),
-			logs: Array.isArray(logsRaw?.logs) ? logsRaw.logs : undefined,
+			logs,
 		},
 	});
+	if (!rawLogs && logs) {
+		await writeLogFile(plugin, LOGS_FILE, persisted.state.logs);
+		await removeStorageFile(plugin, LEGACY_LOGS_FILE);
+	}
+	return persisted;
 }
 
 async function loadStoredPassword(
@@ -315,6 +320,30 @@ async function readJsonFile<T>(
 	}
 }
 
+async function readLogFile(
+	plugin: Plugin,
+	fileName: string,
+	warnings: StorageWarning[],
+): Promise<DebugLogEntry[] | undefined> {
+	const path = getStoragePath(plugin, fileName);
+	if (!(await plugin.app.vault.adapter.exists(path))) {
+		return undefined;
+	}
+
+	try {
+		const raw = await plugin.app.vault.adapter.read(path);
+		return parseLogEntries(raw);
+	} catch (error) {
+		warnings.push({
+			code: 'storage-file-invalid',
+			level: 'warn',
+			fileName,
+			detail: error instanceof Error ? error.message : String(error),
+		});
+		return undefined;
+	}
+}
+
 async function writeJsonFile(
 	plugin: Plugin,
 	fileName: string,
@@ -322,6 +351,15 @@ async function writeJsonFile(
 ): Promise<void> {
 	const path = getStoragePath(plugin, fileName);
 	await plugin.app.vault.adapter.write(path, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+async function writeLogFile(
+	plugin: Plugin,
+	fileName: string,
+	logs: DebugLogEntry[],
+): Promise<void> {
+	const path = getStoragePath(plugin, fileName);
+	await plugin.app.vault.adapter.write(path, formatLogEntries(logs));
 }
 
 async function hasStorageFile(plugin: Plugin, fileName: string): Promise<boolean> {
@@ -346,10 +384,7 @@ async function ensureStorageRoot(plugin: Plugin): Promise<void> {
 }
 
 async function removeLegacyDataFile(plugin: Plugin): Promise<void> {
-	const path = getStoragePath(plugin, LEGACY_DATA_FILE);
-	if (await plugin.app.vault.adapter.exists(path)) {
-		await plugin.app.vault.adapter.remove(path);
-	}
+	await removeStorageFile(plugin, LEGACY_DATA_FILE);
 }
 
 function getStorageRoot(plugin: Plugin): string {
@@ -388,4 +423,136 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 	return value && typeof value === 'object' && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: undefined;
+}
+
+async function removeStorageFile(plugin: Plugin, fileName: string): Promise<void> {
+	const path = getStoragePath(plugin, fileName);
+	if (await plugin.app.vault.adapter.exists(path)) {
+		await plugin.app.vault.adapter.remove(path);
+	}
+}
+
+function normalizeLegacyLogs(value: unknown): DebugLogEntry[] | undefined {
+	if (!Array.isArray(value)) {
+		return undefined;
+	}
+
+	return value.flatMap((item) => {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) {
+			return [];
+		}
+
+		const record = item as Record<string, unknown>;
+		if (
+			typeof record.id !== 'string' ||
+			typeof record.at !== 'string' ||
+			typeof record.level !== 'string' ||
+			typeof record.scope !== 'string' ||
+			typeof record.message !== 'string'
+		) {
+			return [];
+		}
+
+		return [
+			{
+				id: record.id,
+				at: record.at,
+				level:
+					record.level === 'warn' || record.level === 'error'
+						? record.level
+						: 'info',
+				scope: record.scope,
+				message: record.message,
+				detail: typeof record.detail === 'string' ? record.detail : undefined,
+			} satisfies DebugLogEntry,
+		];
+	});
+}
+
+function formatLogEntries(logs: DebugLogEntry[]): string {
+	return logs
+		.map((entry) => {
+			const lines = [
+				'--- wiz-folder-sync log ---',
+				`id: ${entry.id}`,
+				`at: ${entry.at}`,
+				`level: ${entry.level}`,
+				`scope: ${entry.scope}`,
+				`message: ${entry.message}`,
+			];
+			if (entry.detail) {
+				lines.push('detail:');
+				lines.push(...entry.detail.split('\n'));
+			}
+			lines.push('--- end ---');
+			return lines.join('\n');
+		})
+		.join('\n\n')
+		.concat(logs.length > 0 ? '\n' : '');
+}
+
+function parseLogEntries(raw: string): DebugLogEntry[] {
+	const blocks = raw
+		.split(/^--- wiz-folder-sync log ---$/m)
+		.map((block) => block.trim())
+		.filter(Boolean);
+
+	return blocks
+		.flatMap((block) => parseLogBlock(block))
+		.slice(-MAX_DEBUG_LOGS);
+}
+
+function parseLogBlock(block: string): DebugLogEntry[] {
+	const lines = block.split('\n');
+	const entryLines: string[] = [];
+	const detailLines: string[] = [];
+	let inDetail = false;
+
+	for (const line of lines) {
+		if (line === '--- end ---') {
+			break;
+		}
+
+		if (inDetail) {
+			detailLines.push(line);
+			continue;
+		}
+
+		if (line === 'detail:') {
+			inDetail = true;
+			continue;
+		}
+
+		entryLines.push(line);
+	}
+
+	const values = new Map<string, string>();
+	for (const line of entryLines) {
+		const separator = line.indexOf(': ');
+		if (separator <= 0) {
+			continue;
+		}
+
+		values.set(line.slice(0, separator), line.slice(separator + 2));
+	}
+
+	const id = values.get('id');
+	const at = values.get('at');
+	const level = values.get('level');
+	const scope = values.get('scope');
+	const message = values.get('message');
+	if (!id || !at || !scope || !message) {
+		return [];
+	}
+
+	return [
+		{
+			id,
+			at,
+			level: level === 'warn' || level === 'error' ? level : 'info',
+			scope,
+			message,
+			detail: detailLines.length > 0 ? detailLines.join('\n') : undefined,
+		} satisfies DebugLogEntry,
+	];
 }

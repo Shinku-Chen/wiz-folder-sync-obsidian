@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`AGENTS.md`、`src/persistence.ts`、`CHANGELOG.md`
+- 摘要：把日志持久化文件从 `logs.json` 改为纯文本 `logs.log`，按原始日志条目写盘，并兼容迁移已存在的 `logs.json`。
+
 - 影响文件：`AGENTS.md`、`src/main.ts`、`src/settings.ts`、`src/persistence.ts`、`src/i18n.ts`、`CHANGELOG.md`
 - 摘要：把插件持久化拆分为账号、同步、日志三个独立文件；密码改为本地加密存储，并在升级时自动迁移旧 `data.json`。
 
