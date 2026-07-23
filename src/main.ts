@@ -10,6 +10,7 @@ import { formatLogDetail } from './logging';
 import { t } from './i18n';
 import {
 	DEFAULT_SETTINGS,
+	MAX_DEBUG_LOGS,
 	loadPersistedData,
 	type DebugLogEntry,
 	type DebugLogLevel,
@@ -782,7 +783,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 			message,
 			detail,
 		};
-		this.state.logs = [...this.state.logs, entry].slice(-300);
+		this.state.logs = [...this.state.logs, entry].slice(-MAX_DEBUG_LOGS);
 		this.refreshSyncLogView();
 	}
 

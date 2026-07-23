@@ -46,6 +46,8 @@ export interface PluginState {
 	logs: DebugLogEntry[];
 }
 
+export const MAX_DEBUG_LOGS = 100;
+
 interface PersistedData {
 	settings: WizFolderSyncSettings;
 	state: PluginState;
@@ -177,7 +179,7 @@ function normalizeLogs(value: unknown): DebugLogEntry[] {
 
 				return [{ id, at, level, scope, message, detail } satisfies DebugLogEntry];
 			})
-			.slice(-300);
+			.slice(-MAX_DEBUG_LOGS);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
