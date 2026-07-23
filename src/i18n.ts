@@ -146,10 +146,10 @@ const translations = {
 			'为知目标分类路径，例如 /My Notes/Obsidian Sync/。',
 		settingSyncModeName: '同步模式',
 		settingSyncModeDesc:
-			'选择双向同步、仅 Obsidian 到为知，或仅 为知 到 Obsidian。',
+			'选择双向同步、仅 Obsidian 到为知笔记，或仅 为知笔记 到 Obsidian。',
 		settingSyncModeBidirectional: '双向同步',
-		settingSyncModeLocalToRemote: '仅 Obsidian 到为知',
-		settingSyncModeRemoteToLocal: '仅 为知 到 Obsidian',
+		settingSyncModeLocalToRemote: '仅 Obsidian 到为知笔记',
+		settingSyncModeRemoteToLocal: '仅 为知笔记 到 Obsidian',
 		settingAutoSyncName: '保存后自动同步',
 		settingAutoSyncDesc: '保存 Markdown 文件后自动同步对应变更。',
 		settingAutoSyncDebounceName: '自动同步防抖',
