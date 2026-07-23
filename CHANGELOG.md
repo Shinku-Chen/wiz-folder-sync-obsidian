@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`AGENTS.md`、`CHANGELOG.md`
+- 摘要：补充发布规则：发版描述只记录“本次发版到上一次发版之间”的变动，且发版时不等待 GitHub Actions 流水线完成。
+
 - 影响文件：`manifest.json`、`versions.json`、`package.json`、`CHANGELOG.md`
 - 摘要：删除已有的 `1.0.1` / `1.0.2` 标签与旧 `1.0.1` release 后，重新以当前发布流程发布 `1.0.1`。
 

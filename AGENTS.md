@@ -140,6 +140,8 @@ Don't:
 - GitHub release tag 必须与 `manifest.json` 中的版本号完全一致，不加前导 `v`。
 - GitHub Release 页面只上传 `wiz-folder-sync-obsidian.zip` 这一个自定义资产；`main.js`、`manifest.json`、`styles.css` 应打包在 zip 内，而不是作为独立 release 资产上传。除此之外保留 GitHub 默认的 Source code 归档。
 - `wiz-folder-sync-obsidian.zip` 的顶层目录名同样为 `wiz-folder-sync-obsidian/`。
+- 发版描述只记录“本次发版到上一次发版之间”的变动，不回溯更早版本的历史。
+- 发版时不需要等待 GitHub Actions release 流水线执行完成；完成 tag / push 后即可视为发版动作已提交。
 - 构建后的发布目录是 `.build/wiz-folder-sync-obsidian/`；验证发布包时以该目录内容为准。
 
 ## 常见任务
