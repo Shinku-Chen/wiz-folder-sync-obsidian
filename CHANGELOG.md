@@ -7,6 +7,9 @@
 ### 2026-07-23
 
 - 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
+- 摘要：把冲突笔记的本地后缀格式调整为 `标题.md[短 docGuid]`，便于和原始标题一起识别。
+
+- 影响文件：`src/sync/service.ts`、`CHANGELOG.md`
 - 摘要：改为保留同目录同标题的多条远端笔记；当本地路径冲突时自动追加稳定后缀，而不是直接按路径去重丢弃笔记。
 
 - 影响文件：`src/sync/service.ts`、`CHANGELOG.md`

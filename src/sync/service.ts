@@ -842,10 +842,7 @@ function appendSuffixToPath(path: string, suffix: string): string {
 	const normalizedPath = normalizePath(path);
 	const parts = normalizedPath.split('/');
 	const fileName = parts.pop() ?? normalizedPath;
-	const extensionMatch = fileName.match(/(\.[^.]+)$/);
-	const extension = extensionMatch?.[1] ?? '';
-	const baseName = extension ? fileName.slice(0, -extension.length) : fileName;
-	const nextFileName = `${baseName}${suffix}${extension}`;
+	const nextFileName = `${fileName}${suffix}`;
 	return parts.length > 0
 		? normalizePath(`${parts.join('/')}/${nextFileName}`)
 		: nextFileName;
