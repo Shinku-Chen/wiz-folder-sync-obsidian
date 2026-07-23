@@ -42,26 +42,29 @@ export async function syncFolderToWiz(
 ): Promise<SyncResult> {
 	const sourceFolder = normalizeSourceFolder(context.settings.sourceFolder);
 	const targetCategory = normalizeCategoryPath(context.settings.targetCategory);
+	const shouldPushLocal = context.settings.syncMode !== 'remote-to-local';
+	const shouldPullRemote = context.settings.syncMode !== 'local-to-remote';
 	validateSourceFolder(context.app, sourceFolder);
 
 	const client = await WizClient.login(context.settings);
 	const existingCategories = await client.getCategories();
 	await ensureCategoryExists(client, existingCategories, targetCategory);
-	await ensureRemoteFolderStructure(
-		context.app,
-		client,
-		existingCategories,
-		sourceFolder,
-		targetCategory,
-		context.onLog,
-	);
-	const remoteNotes =
-		context.settings.syncMode === 'bidirectional'
-			? await collectRemoteNotes(client, existingCategories, targetCategory)
-			: [];
+	if (shouldPushLocal) {
+		await ensureRemoteFolderStructure(
+			context.app,
+			client,
+			existingCategories,
+			sourceFolder,
+			targetCategory,
+			context.onLog,
+		);
+	}
+	const remoteNotes = shouldPullRemote
+		? await collectRemoteNotes(client, existingCategories, targetCategory)
+		: [];
 	const remoteByDocGuid = new Map(remoteNotes.map((note) => [note.docGuid, note]));
 
-	if (context.settings.syncMode === 'bidirectional') {
+	if (shouldPullRemote) {
 		await ensureLocalFolderStructure(
 			context.app,
 			sourceFolder,
@@ -87,7 +90,7 @@ export async function syncFolderToWiz(
 		failed: 0,
 	};
 
-	if (context.settings.syncMode === 'bidirectional') {
+	if (shouldPullRemote) {
 		for (let index = 0; index < remoteNotes.length; index += 1) {
 			const remoteNote = remoteNotes[index];
 			if (!remoteNote) {
@@ -133,6 +136,11 @@ export async function syncFolderToWiz(
 	const localFiles = [...localByPath.values()].sort((left, right) =>
 		left.path.localeCompare(right.path),
 	);
+
+	if (!shouldPushLocal) {
+		await context.saveState();
+		return result;
+	}
 
 	for (let index = 0; index < localFiles.length; index += 1) {
 		const file = localFiles[index];
@@ -192,6 +200,10 @@ export async function syncFolderToWiz(
 export async function syncFileToWiz(
 	context: SyncContext & { file: TFile },
 ): Promise<'created' | 'updated' | 'skipped'> {
+	if (context.settings.syncMode === 'remote-to-local') {
+		return 'skipped';
+	}
+
 	const sourceFolder = normalizeSourceFolder(context.settings.sourceFolder);
 	if (!isFileInSourceFolder(context.file.path, sourceFolder)) {
 		throw new Error(t('errorFileOutsideSourceFolder', { path: context.file.path }));

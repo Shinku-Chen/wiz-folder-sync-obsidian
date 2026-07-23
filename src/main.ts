@@ -62,11 +62,18 @@ export default class WizFolderSyncPlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on('delete', async (file) => {
 				if (file instanceof TFolder) {
+					if (!this.allowsLocalToRemoteSync()) {
+						return;
+					}
 					await this.handleRemoteFolderDelete(file.path);
 					return;
 				}
 
 				if (!(file instanceof TFile) || file.extension !== 'md') {
+					return;
+				}
+
+				if (!this.allowsLocalToRemoteSync()) {
 					return;
 				}
 
@@ -286,8 +293,16 @@ export default class WizFolderSyncPlugin extends Plugin {
 		);
 	}
 
+	private allowsLocalToRemoteSync(): boolean {
+		return this.settings.syncMode !== 'remote-to-local';
+	}
+
 	private handleFileModify(file: TAbstractFile) {
 		if (!(file instanceof TFile) || file.extension !== 'md') {
+			return;
+		}
+
+		if (!this.allowsLocalToRemoteSync()) {
 			return;
 		}
 

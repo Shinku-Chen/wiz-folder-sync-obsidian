@@ -1,4 +1,7 @@
-export type SyncMode = 'bidirectional' | 'local-to-remote';
+export type SyncMode =
+	| 'bidirectional'
+	| 'local-to-remote'
+	| 'remote-to-local';
 
 export type DebugLogLevel = 'info' | 'warn' | 'error';
 
@@ -54,7 +57,7 @@ export const DEFAULT_SETTINGS: WizFolderSyncSettings = {
 	password: '',
 	sourceFolder: '',
 	targetCategory: '/My Notes/Obsidian Sync/',
-	syncMode: 'bidirectional',
+	syncMode: 'remote-to-local',
 	autoSyncOnSave: false,
 	autoSyncDebounceMs: 1500,
 };
@@ -70,6 +73,7 @@ export function loadPersistedData(raw: unknown): PersistedData {
 		settings: {
 			...DEFAULT_SETTINGS,
 			...settingsSource,
+			syncMode: normalizeSyncMode(settingsSource?.syncMode),
 		},
 		state: {
 			records: Object.fromEntries(
@@ -89,6 +93,18 @@ export function loadPersistedData(raw: unknown): PersistedData {
 			logs: normalizeLogs(stateSource?.logs),
 		},
 	};
+}
+
+function normalizeSyncMode(value: unknown): SyncMode {
+	if (
+		value === 'bidirectional' ||
+		value === 'local-to-remote' ||
+		value === 'remote-to-local'
+	) {
+		return value;
+	}
+
+	return DEFAULT_SETTINGS.syncMode;
 }
 
 function normalizeAssetMappings(

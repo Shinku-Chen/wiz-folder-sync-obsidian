@@ -99,11 +99,16 @@ export class WizFolderSyncSettingTab extends PluginSettingTab {
 						'local-to-remote',
 						t('settingSyncModeLocalToRemote'),
 					)
+					.addOption(
+						'remote-to-local',
+						t('settingSyncModeRemoteToLocal'),
+					)
 					.setValue(this.plugin.settings.syncMode)
 					.onChange(async (value) => {
 						this.plugin.settings.syncMode =
-							value === 'local-to-remote'
-								? 'local-to-remote'
+							value === 'local-to-remote' ||
+							value === 'remote-to-local'
+								? value
 								: 'bidirectional';
 						await this.plugin.savePluginState();
 					}),

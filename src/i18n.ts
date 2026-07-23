@@ -54,9 +54,10 @@ const translations = {
 			'Wiz category path. Use an existing root such as /my notes/Obsidian Sync/.',
 		settingSyncModeName: 'Sync mode',
 		settingSyncModeDesc:
-			'Choose whether to sync both directions or only push local changes to Wiz.',
+			'Choose bidirectional sync, Obsidian to Wiz only, or Wiz to Obsidian only.',
 		settingSyncModeBidirectional: 'Bidirectional',
 		settingSyncModeLocalToRemote: 'Obsidian to Wiz only',
+		settingSyncModeRemoteToLocal: 'Wiz to Obsidian only',
 		settingAutoSyncName: 'Auto sync on save',
 		settingAutoSyncDesc:
 			'Automatically sync changed Markdown files after they are saved.',
@@ -144,9 +145,10 @@ const translations = {
 			'为知目标分类路径，例如 /My Notes/Obsidian Sync/。',
 		settingSyncModeName: '同步模式',
 		settingSyncModeDesc:
-			'选择双向同步，或只把本地改动推送到为知。',
+			'选择双向同步、仅 Obsidian 到为知，或仅 为知 到 Obsidian。',
 		settingSyncModeBidirectional: '双向同步',
 		settingSyncModeLocalToRemote: '仅 Obsidian 到为知',
+		settingSyncModeRemoteToLocal: '仅 为知 到 Obsidian',
 		settingAutoSyncName: '保存后自动同步',
 		settingAutoSyncDesc: '保存 Markdown 文件后自动同步对应变更。',
 		settingAutoSyncDebounceName: '自动同步防抖',
