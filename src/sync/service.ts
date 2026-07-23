@@ -42,7 +42,10 @@ export async function syncFolderToWiz(
 	context: SyncContext,
 ): Promise<SyncResult> {
 	const sourceFolder = normalizeSourceFolder(context.settings.sourceFolder);
-	const targetCategory = normalizeCategoryPath(context.settings.targetCategory);
+	const targetCategory = normalizeCategoryPath(
+		context.settings.targetCategory,
+		{ allowRoot: true },
+	);
 	const shouldPushLocal = context.settings.syncMode !== 'remote-to-local';
 	const shouldPullRemote = context.settings.syncMode !== 'local-to-remote';
 	validateSourceFolder(context.app, sourceFolder);
@@ -75,7 +78,11 @@ export async function syncFolderToWiz(
 		);
 	}
 
-	const files = collectMarkdownFiles(context.app, sourceFolder);
+	const files = collectMarkdownFiles(
+		context.app,
+		sourceFolder,
+		targetCategory,
+	);
 	const localByPath = new Map(files.map((file) => [file.path, file]));
 	pruneMissingRecords(context.state.records, sourceFolder, new Set(localByPath.keys()));
 
@@ -232,7 +239,13 @@ export async function syncFileToWiz(
 		throw new Error(t('errorFileOutsideSourceFolder', { path: context.file.path }));
 	}
 
-	const targetCategory = normalizeCategoryPath(context.settings.targetCategory);
+	const targetCategory = normalizeCategoryPath(
+		context.settings.targetCategory,
+		{ allowRoot: true },
+	);
+	if (!isPathInSyncScope(context.file.path, sourceFolder, targetCategory)) {
+		return 'skipped';
+	}
 	validateSourceFolder(context.app, sourceFolder);
 
 	const client = await WizClient.login(context.settings);
@@ -261,25 +274,29 @@ function validateSourceFolder(app: App, sourceFolder: string) {
 	}
 }
 
-function collectMarkdownFiles(app: App, sourceFolder: string): TFile[] {
+function collectMarkdownFiles(
+	app: App,
+	sourceFolder: string,
+	targetCategory: string,
+): TFile[] {
 	const files = app.vault.getMarkdownFiles();
-	if (!sourceFolder) {
-		return files.sort((left, right) => left.path.localeCompare(right.path));
-	}
-
 	return files
-		.filter((file) => isFileInSourceFolder(file.path, sourceFolder))
+		.filter((file) => isPathInSyncScope(file.path, sourceFolder, targetCategory))
 		.sort((left, right) => left.path.localeCompare(right.path));
 }
 
-function collectFolders(app: App, sourceFolder: string): TFolder[] {
+function collectFolders(
+	app: App,
+	sourceFolder: string,
+	targetCategory: string,
+): TFolder[] {
 	return app.vault
 		.getAllLoadedFiles()
 		.filter(
 			(file): file is TFolder =>
 				file instanceof TFolder &&
 				file.path.length > 0 &&
-				isInSourceFolder(file.path, sourceFolder),
+				isPathInSyncScope(file.path, sourceFolder, targetCategory),
 		)
 		.sort((left, right) => left.path.localeCompare(right.path));
 }
@@ -322,12 +339,52 @@ export function isFileInSourceFolder(
 	return isInSourceFolder(path, sourceFolder);
 }
 
+export function isPathInSyncScope(
+	path: string,
+	sourceFolder: string,
+	targetCategory: string,
+): boolean {
+	return (
+		isInSourceFolder(path, sourceFolder) &&
+		!isExcludedWhenSyncingAllCategories(path, sourceFolder, targetCategory)
+	);
+}
+
+function isExcludedWhenSyncingAllCategories(
+	path: string,
+	sourceFolder: string,
+	targetCategory: string,
+): boolean {
+	if (normalizeCategoryPath(targetCategory, { allowRoot: true }) !== '/') {
+		return false;
+	}
+
+	const relativePath =
+		sourceFolder && path !== sourceFolder
+			? path.slice(sourceFolder.length + 1)
+			: sourceFolder
+				? ''
+				: path;
+	if (!relativePath) {
+		return false;
+	}
+
+	const [firstSegment] = relativePath
+		.split('/')
+		.map((segment) => segment.trim())
+		.filter(Boolean);
+	return firstSegment?.toLowerCase() === 'deleted items';
+}
+
 async function ensureCategoryExists(
 	client: WizClient,
 	knownCategories: Set<string>,
 	category: string,
 ) {
-	const normalized = normalizeCategoryPath(category);
+	const normalized = normalizeCategoryPath(category, { allowRoot: true });
+	if (normalized === '/') {
+		return;
+	}
 	if (knownCategories.has(normalized)) {
 		return;
 	}
@@ -363,7 +420,7 @@ async function ensureRemoteFolderStructure(
 	targetCategory: string,
 	onLog?: SyncContext['onLog'],
 ) {
-	const folders = collectFolders(app, sourceFolder);
+	const folders = collectFolders(app, sourceFolder, targetCategory);
 	for (const folder of folders) {
 		const remoteCategory = buildRemoteCategoryForFolder(
 			targetCategory,
@@ -426,7 +483,9 @@ function buildRemoteCategory(
 		return targetCategory;
 	}
 
-	return normalizeCategoryPath(`${targetCategory}${segments.join('/')}`);
+	return normalizeCategoryPath(`${targetCategory}${segments.join('/')}`, {
+		allowRoot: true,
+	});
 }
 
 function buildRemoteCategoryForFolder(
@@ -445,7 +504,9 @@ function buildRemoteCategoryForFolder(
 		return targetCategory;
 	}
 
-	return normalizeCategoryPath(`${targetCategory}${relativePath}`);
+	return normalizeCategoryPath(`${targetCategory}${relativePath}`, {
+		allowRoot: true,
+	});
 }
 
 function createRecord(
@@ -831,10 +892,10 @@ function buildLocalPathFromRemote(
 	title: string,
 ): string {
 	const normalizedTitle = ensureMarkdownTitle(title);
-	const rootSegments = normalizeCategoryPath(targetCategory)
+	const rootSegments = normalizeCategoryPath(targetCategory, { allowRoot: true })
 		.split('/')
 		.filter(Boolean);
-	const remoteSegments = normalizeCategoryPath(remoteCategory)
+	const remoteSegments = normalizeCategoryPath(remoteCategory, { allowRoot: true })
 		.split('/')
 		.filter(Boolean);
 
@@ -856,10 +917,10 @@ function buildLocalFolderPathFromRemoteCategory(
 	targetCategory: string,
 	remoteCategory: string,
 ): string {
-	const rootSegments = normalizeCategoryPath(targetCategory)
+	const rootSegments = normalizeCategoryPath(targetCategory, { allowRoot: true })
 		.split('/')
 		.filter(Boolean);
-	const remoteSegments = normalizeCategoryPath(remoteCategory)
+	const remoteSegments = normalizeCategoryPath(remoteCategory, { allowRoot: true })
 		.split('/')
 		.filter(Boolean);
 

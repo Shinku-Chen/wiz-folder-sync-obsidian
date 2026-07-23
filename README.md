@@ -30,7 +30,7 @@
 - `Source folder`
   要同步的 vault 相对目录，留空表示整个 vault
 - `Target category`
-  为知目标分类，例如 `/My Notes/Obsidian Sync/`
+  为知目标分类，例如 `/My Notes/Obsidian Sync/`；留空表示同步 `/Deleted Items/` 以外的全部目录
 - `Sync mode`
   选择双向同步，或只把本地改动推送到为知
 - `Auto sync on save`
@@ -45,7 +45,7 @@
 3. 构建完成后，发布文件会出现在 `.build/wiz-folder-sync-obsidian/`
 4. 把 `.build/wiz-folder-sync-obsidian/` 里的 `main.js`、`manifest.json`、`styles.css` 放到 vault 的 `.obsidian/plugins/wiz-folder-sync-obsidian/`
 5. 在 Obsidian 中启用插件
-6. 打开设置页，填入为知账号、密码、源目录和目标分类
+6. 打开设置页，填入为知账号、密码、源目录和目标分类；如果目标分类留空，则同步 `/Deleted Items/` 以外的全部目录
 7. 先执行 `Test WizNote connection`
 8. 再执行 `Sync folder to wiznote`
 9. 如果需要实时同步，打开 `Auto sync on save`

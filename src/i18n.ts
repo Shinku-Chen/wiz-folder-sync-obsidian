@@ -51,7 +51,7 @@ const translations = {
 			'Vault-relative folder to sync. Leave empty to sync the whole vault.',
 		settingTargetCategoryName: 'Target category',
 		settingTargetCategoryDesc:
-			'Wiz category path. Use an existing root such as /my notes/Obsidian Sync/.',
+			'Wiz category path. Leave empty to sync every category except /Deleted Items/.',
 		settingSyncModeName: 'Sync mode',
 		settingSyncModeDesc:
 			'Choose bidirectional sync, Obsidian to Wiz only, or Wiz to Obsidian only.',
@@ -143,7 +143,7 @@ const translations = {
 		settingSourceFolderDesc: '要同步的库内相对目录。留空表示同步整个 vault。',
 		settingTargetCategoryName: '目标分类',
 		settingTargetCategoryDesc:
-			'为知目标分类路径，例如 /My Notes/Obsidian Sync/。',
+			'为知目标分类路径，例如 /My Notes/Obsidian Sync/。留空时同步 `/Deleted Items/` 以外的全部分类。',
 		settingSyncModeName: '同步模式',
 		settingSyncModeDesc:
 			'选择双向同步、仅 Obsidian 到为知笔记，或仅 为知笔记 到 Obsidian。',

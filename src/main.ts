@@ -29,7 +29,7 @@ import {
 	WizClient,
 } from './wiz/client';
 import {
-	isFileInSourceFolder,
+	isPathInSyncScope,
 	syncFileToWiz,
 	syncFolderToWiz,
 } from './sync/service';
@@ -345,8 +345,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 		return (
 			this.settings.accountBaseUrl.trim().length > 0 &&
 			this.settings.userId.trim().length > 0 &&
-			this.settings.password.length > 0 &&
-			this.settings.targetCategory.trim().length > 0
+			this.settings.password.length > 0
 		);
 	}
 
@@ -371,7 +370,13 @@ export default class WizFolderSyncPlugin extends Plugin {
 			.trim()
 			.replace(/^\/+/, '')
 			.replace(/\/+$/, '');
-		if (!isFileInSourceFolder(file.path, sourceFolder)) {
+		if (
+			!isPathInSyncScope(
+				file.path,
+				sourceFolder,
+				this.settings.targetCategory,
+			)
+		) {
 			return;
 		}
 
@@ -499,7 +504,13 @@ export default class WizFolderSyncPlugin extends Plugin {
 
 	private async handleRemoteFolderDelete(folderPath: string) {
 		const sourceFolder = this.normalizeSourceFolder();
-		if (!isFileInSourceFolder(folderPath, sourceFolder)) {
+		if (
+			!isPathInSyncScope(
+				folderPath,
+				sourceFolder,
+				this.settings.targetCategory,
+			)
+		) {
 			return;
 		}
 
@@ -595,13 +606,17 @@ export default class WizFolderSyncPlugin extends Plugin {
 		folderPath: string,
 		sourceFolder: string,
 	): string {
-		const targetCategory = normalizeCategoryPath(this.settings.targetCategory);
+		const targetCategory = normalizeCategoryPath(this.settings.targetCategory, {
+			allowRoot: true,
+		});
 		if (!sourceFolder || folderPath !== sourceFolder) {
 			const relativePath = sourceFolder
 				? folderPath.slice(sourceFolder.length + 1)
 				: folderPath;
 			if (relativePath) {
-				return normalizeCategoryPath(`${targetCategory}${relativePath}`);
+				return normalizeCategoryPath(`${targetCategory}${relativePath}`, {
+					allowRoot: true,
+				});
 			}
 		}
 

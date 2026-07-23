@@ -797,20 +797,40 @@ export async function testWizConnection(
 	});
 }
 
+const DELETED_ITEMS_CATEGORY = '/deleted items/';
+
 export function listNestedCategories(
 	categories: Set<string>,
 	rootCategory: string,
 ): string[] {
-	const normalizedRoot = normalizeCategoryPath(rootCategory);
+	const normalizedRoot = normalizeCategoryPath(rootCategory, { allowRoot: true });
+
+	if (normalizedRoot === '/') {
+		return [...categories]
+			.filter((category) => !isDeletedItemsCategory(category))
+			.sort();
+	}
+
 	const result = new Set<string>([normalizedRoot]);
 
 	for (const category of categories) {
-		if (category === normalizedRoot || category.startsWith(normalizedRoot)) {
+		if (
+			(category === normalizedRoot || category.startsWith(normalizedRoot)) &&
+			!isDeletedItemsCategory(category)
+		) {
 			result.add(category);
 		}
 	}
 
 	return [...result].sort();
+}
+
+function isDeletedItemsCategory(category: string): boolean {
+	const normalized = normalizeCategoryPath(category, { allowRoot: true }).toLowerCase();
+	return (
+		normalized === DELETED_ITEMS_CATEGORY ||
+		normalized.startsWith(DELETED_ITEMS_CATEGORY)
+	);
 }
 
 export function isSupportedRemoteNoteType(type: string): boolean {
@@ -1191,13 +1211,19 @@ function encodeBase64Url(data: Uint8Array): string {
 	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function normalizeCategoryPath(category: string): string {
+export function normalizeCategoryPath(
+	category: string,
+	options?: { allowRoot?: boolean },
+): string {
 	const segments = category
 		.split('/')
 		.map((segment) => segment.trim())
 		.filter(Boolean);
 
 	if (segments.length === 0) {
+		if (options?.allowRoot) {
+			return '/';
+		}
 		throw new Error(t('errorTargetCategoryRequired'));
 	}
 

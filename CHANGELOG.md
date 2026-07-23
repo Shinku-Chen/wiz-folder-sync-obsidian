@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`src/sync/service.ts`、`src/main.ts`、`src/wiz/client.ts`、`src/i18n.ts`、`src/ui/settings-tab.ts`、`README.md`、`AGENTS.md`、`CHANGELOG.md`
+- 摘要：允许目标分类留空；留空时同步为知笔记中 `/Deleted Items/` 以外的全部目录。
+
 - 影响文件：`src/i18n.ts`、`CHANGELOG.md`
 - 摘要：把同步模式下拉框中的“为知”文案改为“为知笔记”。
 
