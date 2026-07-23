@@ -143,13 +143,14 @@ export async function materializeRemoteAssets(options: {
 	const assetDir = buildAssetDirPath(options.notePath);
 	const resourceFiles = await collectRemoteResourceFiles(options);
 	const attachmentFiles = await collectRemoteAttachmentFiles(options);
-	const allFiles = [...resourceFiles, ...attachmentFiles];
+	const allFiles = filterWritableRemoteFiles(
+		[...resourceFiles, ...attachmentFiles],
+		options,
+	);
 
 	if (allFiles.length === 0) {
 		return cleanMarkdown;
 	}
-
-	await ensureFolderExists(options.app, assetDir);
 
 	const pathMap = new Map<string, string>();
 	for (const file of allFiles) {
@@ -159,19 +160,52 @@ export async function materializeRemoteAssets(options: {
 	}
 
 	let rewritten = rewriteRemoteAssetLinks(cleanMarkdown, resourceFiles, pathMap);
+	const attachmentPaths = attachmentFiles
+		.map((file) => pathMap.get(file.name))
+		.filter((path): path is string => Boolean(path));
 	if (attachmentFiles.length > 0) {
 		rewritten = appendManagedAttachmentsSection(
 			rewritten,
-			attachmentFiles.map((file) => pathMap.get(file.name) ?? file.name),
+			attachmentPaths,
 		);
 	}
 
 	options.logger?.(
 		'info',
 		'assets',
-		`Downloaded ${resourceFiles.length} resources and ${attachmentFiles.length} attachments for ${options.notePath}`,
+		`Downloaded ${allFiles.filter((file) => resourceFiles.includes(file)).length} resources and ${allFiles.filter((file) => attachmentFiles.includes(file)).length} attachments for ${options.notePath}`,
 	);
 	return rewritten;
+}
+
+function filterWritableRemoteFiles(
+	files: RemoteAssetFile[],
+	options: {
+		docGuid: string;
+		notePath: string;
+		noteType: string;
+		logger?: Logger;
+	},
+): RemoteAssetFile[] {
+	return files.filter((file) => {
+		if (file.data.byteLength > 0) {
+			return true;
+		}
+
+		options.logger?.(
+			'warn',
+			'assets',
+			`Skipped empty remote asset ${file.name}`,
+			formatAssetLogDetail([
+				['docGuid', options.docGuid],
+				['noteType', options.noteType],
+				['notePath', options.notePath],
+				['assetName', file.name],
+				['reason', 'empty payload'],
+			]),
+		);
+		return false;
+	});
 }
 
 export function stripManagedAttachmentsSection(markdown: string): string {
