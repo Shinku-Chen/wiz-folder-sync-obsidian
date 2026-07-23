@@ -84,6 +84,19 @@ export default class WizFolderSyncPlugin extends Plugin {
 				this.handleFileModify(file);
 			}),
 		);
+
+		this.app.workspace.onLayoutReady(() => {
+			void this.runLifecycleSync('startup');
+		});
+
+		this.registerEvent(
+			this.app.workspace.on('quit', (tasks) => {
+				// Obsidian only offers a best-effort quit hook. Queue a final sync task here.
+				tasks.add(async () => {
+					await this.runLifecycleSync('shutdown');
+				});
+			}),
+		);
 	}
 
 	onunload() {
@@ -96,19 +109,13 @@ export default class WizFolderSyncPlugin extends Plugin {
 	}
 
 	async runSyncCommand() {
-		if (this.syncInFlight) {
-			new Notice(t('noticeSyncRunning'));
-			return this.syncInFlight;
-		}
-
-		this.appendLog('info', 'sync', 'Manual sync started');
-		this.syncInFlight = this.performSync();
-
-		try {
-			await this.syncInFlight;
-		} finally {
-			this.syncInFlight = null;
-		}
+		await this.runManagedSync({
+			scope: 'sync',
+			startMessage: 'Manual sync started',
+			notifyIfRunning: true,
+			successNotice: true,
+			failureNotice: true,
+		});
 	}
 
 	async testConnectionCommand() {
@@ -162,7 +169,12 @@ export default class WizFolderSyncPlugin extends Plugin {
 		this.state = persisted.state;
 	}
 
-	private async performSync() {
+	private async performSync(options?: {
+		successNotice?: boolean;
+		failureNotice?: boolean;
+	}) {
+		const successNotice = options?.successNotice ?? true;
+		const failureNotice = options?.failureNotice ?? true;
 		try {
 			this.setStatus(t('statusSyncingFolder'));
 			const result = await syncFolderToWiz({
@@ -189,15 +201,89 @@ export default class WizFolderSyncPlugin extends Plugin {
 				failed: result.failed,
 			});
 			this.setStatus(summary);
-			new Notice(summary, 10000);
+			if (successNotice) {
+				new Notice(summary, 10000);
+			}
 			this.appendLog('info', 'sync', summary);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.setStatus(t('statusSyncFailed'));
-			new Notice(t('noticeSyncFailed', { message }), 12000);
+			if (failureNotice) {
+				new Notice(t('noticeSyncFailed', { message }), 12000);
+			}
 			this.appendLog('error', 'sync', 'Folder sync failed', message);
 			throw error;
 		}
+	}
+
+	private async runManagedSync(options: {
+		scope: string;
+		startMessage: string;
+		notifyIfRunning: boolean;
+		successNotice: boolean;
+		failureNotice: boolean;
+	}) {
+		if (this.syncInFlight) {
+			this.appendLog(
+				'info',
+				options.scope,
+				`${options.startMessage} skipped because another sync is already running`,
+			);
+			if (options.notifyIfRunning) {
+				new Notice(t('noticeSyncRunning'));
+			}
+			return this.syncInFlight;
+		}
+
+		this.appendLog('info', options.scope, options.startMessage);
+		const syncTask = this.performSync({
+			successNotice: options.successNotice,
+			failureNotice: options.failureNotice,
+		});
+		this.syncInFlight = syncTask;
+
+		try {
+			await syncTask;
+		} finally {
+			if (this.syncInFlight === syncTask) {
+				this.syncInFlight = null;
+			}
+		}
+	}
+
+	private async runLifecycleSync(trigger: 'startup' | 'shutdown') {
+		if (!this.isSyncConfigured()) {
+			this.appendLog(
+				'info',
+				trigger,
+				`Skipped ${trigger} sync because Wiz sync is not fully configured`,
+			);
+			return;
+		}
+
+		if (trigger === 'shutdown') {
+			this.clearAutoSyncTimer();
+		}
+
+		await this.runManagedSync({
+			scope: trigger,
+			startMessage:
+				trigger === 'startup'
+					? 'Startup sync started'
+					: 'Shutdown sync started',
+			notifyIfRunning: false,
+			successNotice: false,
+			failureNotice: trigger === 'startup',
+		});
+	}
+
+	private isSyncConfigured(): boolean {
+		return (
+			this.settings.accountBaseUrl.trim().length > 0 &&
+			this.settings.userId.trim().length > 0 &&
+			this.settings.password.length > 0 &&
+			this.settings.targetCategory.trim().length > 0
+		);
 	}
 
 	private handleFileModify(file: TAbstractFile) {
