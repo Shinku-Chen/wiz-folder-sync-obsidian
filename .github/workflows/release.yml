@@ -55,5 +55,4 @@ jobs:
 
                   gh release create "$tag" \
                     --title="$tag" \
-                    --draft \
                     wiz-folder-sync-obsidian.zip

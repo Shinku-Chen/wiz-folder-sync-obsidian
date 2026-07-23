@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`.github/workflows/release.yml`、`CHANGELOG.md`
+- 摘要：移除 GitHub Release 自动创建时的 `--draft` 参数，后续 tag 触发的 release 直接以公开发布创建。
+
 - 影响文件：`AGENTS.md`、`CHANGELOG.md`
 - 摘要：补充发布规则：发版描述只记录“本次发版到上一次发版之间”的变动，且发版时不等待 GitHub Actions 流水线完成。
 
