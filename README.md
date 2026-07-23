@@ -1,6 +1,6 @@
 # Wiz Folder Sync
 
-仓库地址：`https://github.com/Shinku-Chen/obsidian-wiz-folder-sync`
+仓库地址：`https://github.com/Shinku-Chen/wiz-folder-sync-obsidian`
 
 `Wiz Folder Sync` 是一个 Obsidian 插件，用来把一个 vault 目录中的 Markdown 笔记、图片、语音和附件同步到为知笔记的某个分类。
 
