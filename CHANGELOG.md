@@ -7,6 +7,9 @@
 ### 2026-07-23
 
 - 影响文件：`README.md`、`CHANGELOG.md`
+- 摘要：调整 README 顶部产品定位文案，明确这是 Obsidian 的插件，用于和为知笔记 `WizNote` 进行同步。
+
+- 影响文件：`README.md`、`CHANGELOG.md`
 - 摘要：补充 README 顶部产品定位，明确这是为知笔记 `WizNote` 的 Obsidian 同步插件。
 
 - 影响文件：`README.md`、`CHANGELOG.md`
