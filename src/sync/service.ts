@@ -1,6 +1,7 @@
 import { App, normalizePath, TFile, TFolder } from 'obsidian';
 import { formatLogDetail } from '../logging';
 import { t } from '../i18n';
+import { sanitizeLocalPathSegment } from '../path';
 import type { PluginState, SyncRecord, WizFolderSyncSettings } from '../settings';
 import {
 	materializeRemoteAssets,
@@ -964,7 +965,7 @@ function buildLocalPathFromRemote(
 	remoteCategory: string,
 	title: string,
 ): string {
-	const normalizedTitle = ensureMarkdownTitle(title);
+	const normalizedTitle = sanitizeLocalPathSegment(ensureMarkdownTitle(title));
 	const rootSegments = normalizeCategoryPath(targetCategory, { allowRoot: true })
 		.split('/')
 		.filter(Boolean);
@@ -978,9 +979,12 @@ function buildLocalPathFromRemote(
 			? remoteSegments.slice(rootSegments.length)
 			: remoteSegments;
 
+	const sanitizedSegments = relativeSegments.map((segment) =>
+		sanitizeLocalPathSegment(segment),
+	);
 	const pathSegments = sourceFolder
-		? [sourceFolder, ...relativeSegments, normalizedTitle]
-		: [...relativeSegments, normalizedTitle];
+		? [sourceFolder, ...sanitizedSegments, normalizedTitle]
+		: [...sanitizedSegments, normalizedTitle];
 
 	return normalizePath(pathSegments.filter(Boolean).join('/'));
 }
@@ -1003,9 +1007,12 @@ function buildLocalFolderPathFromRemoteCategory(
 			? remoteSegments.slice(rootSegments.length)
 			: remoteSegments;
 
+	const sanitizedSegments = relativeSegments.map((segment) =>
+		sanitizeLocalPathSegment(segment),
+	);
 	const pathSegments = sourceFolder
-		? [sourceFolder, ...relativeSegments]
-		: [...relativeSegments];
+		? [sourceFolder, ...sanitizedSegments]
+		: [...sanitizedSegments];
 
 	return normalizePath(pathSegments.filter(Boolean).join('/'));
 }

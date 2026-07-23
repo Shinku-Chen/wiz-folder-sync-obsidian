@@ -515,22 +515,19 @@ export class WizClient {
 		docGuid: string,
 		name: string,
 	): Promise<ArrayBuffer> {
-		const { editorToken } = await this.getCollaborationHeaders(docGuid);
-		const response = await window.fetch(
-			`${this.kbServer}/editor/${this.kbGuid}/${docGuid}/resources/${encodeURIComponent(name)}`,
-			{
-				headers: {
-					cookie: `x-live-editor-token=${editorToken}`,
-					'user-agent': 'Mozilla/5.0',
-				},
-			},
-		);
-		if (!response.ok) {
+		const { base, headers } = await this.getCollaborationHeaders(docGuid);
+		const response = await requestUrl({
+			url: `${base}/resources/${encodeURIComponent(name)}`,
+			method: 'GET',
+			headers,
+			throw: false,
+		});
+		if (response.status >= 400) {
 			throw new Error(
 				`Collaboration resource download failed: HTTP ${response.status}`,
 			);
 		}
-		return await response.arrayBuffer();
+		return response.arrayBuffer;
 	}
 
 	async uploadCollaborationResource(

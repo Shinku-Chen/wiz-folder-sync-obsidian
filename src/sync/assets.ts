@@ -1,4 +1,5 @@
 import { App, normalizePath, TFile, TFolder } from 'obsidian';
+import { sanitizeLocalPathSegment } from '../path';
 import type { SyncedAssetRecord } from '../settings';
 import type { WizClient } from '../wiz/client';
 
@@ -529,7 +530,9 @@ async function writeAssetFile(
 	assetDir: string,
 	file: RemoteAssetFile,
 ): Promise<string> {
-	const localPath = normalizePath(`${assetDir}/${file.name}`);
+	const localPath = normalizePath(
+		`${assetDir}/${sanitizeLocalPathSegment(file.name)}`,
+	);
 	const existing = app.vault.getAbstractFileByPath(localPath);
 	if (existing instanceof TFile) {
 		await app.vault.modifyBinary(existing, file.data);
