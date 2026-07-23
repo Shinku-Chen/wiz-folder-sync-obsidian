@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-wiz-folder-sync",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Sync Obsidian notes, folders, and assets with WizNote.",
 	"main": ".build/wiz-folder-sync-obsidian/main.js",
 	"type": "module",

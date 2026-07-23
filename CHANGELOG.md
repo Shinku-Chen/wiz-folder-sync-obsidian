@@ -7,7 +7,10 @@
 ### 2026-07-23
 
 - 影响文件：`.github/workflows/release.yml`、`AGENTS.md`、`CHANGELOG.md`
-- 摘要：把 GitHub Release 自动上传的 zip 产物统一改名为 `wiz-folder-sync-obsidian.zip`，并同步调整压缩包内顶层目录名。
+- 摘要：把 GitHub Release 页面收敛为只上传一个 `obsidian-wiz-folder-sync.zip`；不再单独上传 `main.js`、`manifest.json`、`styles.css`。
+
+- 影响文件：`manifest.json`、`versions.json`、`package.json`、`CHANGELOG.md`
+- 摘要：发布 `1.0.2` 版本，并同步更新插件清单、版本映射和 npm 包版本号。
 
 - 影响文件：`manifest.json`、`versions.json`、`package.json`、`CHANGELOG.md`
 - 摘要：发布 `1.0.1` 版本，并同步更新插件清单、版本映射、npm 包版本号，以及 `manifest.json` 中指向仓库的作者/赞助链接。

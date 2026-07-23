@@ -28,10 +28,10 @@ jobs:
 
             - name: Prepare release bundle
               run: |
-                  rm -rf wiz-folder-sync-obsidian
-                  mkdir -p wiz-folder-sync-obsidian
-                  cp -R .build/wiz-folder-sync-obsidian/. wiz-folder-sync-obsidian/
-                  zip -r wiz-folder-sync-obsidian.zip wiz-folder-sync-obsidian
+                  rm -rf obsidian-wiz-folder-sync
+                  mkdir -p obsidian-wiz-folder-sync
+                  cp -R .build/wiz-folder-sync-obsidian/. obsidian-wiz-folder-sync/
+                  zip -r obsidian-wiz-folder-sync.zip obsidian-wiz-folder-sync
 
             - name: Check for optional styles
               id: styles
@@ -45,7 +45,7 @@ jobs:
                       .build/wiz-folder-sync-obsidian/main.js
                       .build/wiz-folder-sync-obsidian/manifest.json
                       ${{ steps.styles.outputs.exists == 'true' && '.build/wiz-folder-sync-obsidian/styles.css' || '' }}
-                      wiz-folder-sync-obsidian.zip
+                      obsidian-wiz-folder-sync.zip
 
             - name: Create release
               env:
@@ -56,7 +56,4 @@ jobs:
                   gh release create "$tag" \
                     --title="$tag" \
                     --draft \
-                    wiz-folder-sync-obsidian.zip \
-                    .build/wiz-folder-sync-obsidian/main.js \
-                    .build/wiz-folder-sync-obsidian/manifest.json \
-                    ${{ steps.styles.outputs.exists == 'true' && '.build/wiz-folder-sync-obsidian/styles.css' || '' }}
+                    obsidian-wiz-folder-sync.zip
