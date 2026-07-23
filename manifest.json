@@ -1,7 +1,7 @@
 {
 	"id": "wiz-folder-sync-obsidian",
 	"name": "WizNote Folder Sync",
-	"version": "1.0.2",
+	"version": "1.0.1",
 	"minAppVersion": "1.8.7",
 	"description": "Sync Obsidian notes, folders, and assets with WizNote.",
 	"author": "Shinku",

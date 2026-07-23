@@ -6,6 +6,9 @@
 
 ### 2026-07-23
 
+- 影响文件：`manifest.json`、`versions.json`、`package.json`、`CHANGELOG.md`
+- 摘要：删除已有的 `1.0.1` / `1.0.2` 标签与旧 `1.0.1` release 后，重新以当前发布流程发布 `1.0.1`。
+
 - 影响文件：`.github/workflows/release.yml`、`AGENTS.md`、`CHANGELOG.md`
 - 摘要：把 GitHub Release 自定义资产调整为只上传 `wiz-folder-sync-obsidian.zip`；其余仅保留 GitHub 默认的 Source code 归档。
 
