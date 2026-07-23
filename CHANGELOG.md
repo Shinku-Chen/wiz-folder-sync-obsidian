@@ -7,6 +7,9 @@
 ### 2026-07-23
 
 - 影响文件：`.github/workflows/release.yml`、`AGENTS.md`、`CHANGELOG.md`
+- 摘要：把 GitHub Release 自定义资产调整为只上传 `wiz-folder-sync-obsidian.zip`；其余仅保留 GitHub 默认的 Source code 归档。
+
+- 影响文件：`.github/workflows/release.yml`、`AGENTS.md`、`CHANGELOG.md`
 - 摘要：把 GitHub Release 页面收敛为只上传一个 `obsidian-wiz-folder-sync.zip`；不再单独上传 `main.js`、`manifest.json`、`styles.css`。
 
 - 影响文件：`manifest.json`、`versions.json`、`package.json`、`CHANGELOG.md`
