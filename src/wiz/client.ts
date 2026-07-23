@@ -171,6 +171,17 @@ export class WizClient {
 		});
 	}
 
+	async deleteCategory(category: string): Promise<void> {
+		await execRequest<unknown>({
+			method: 'DELETE',
+			url: `${this.kbServer}/ks/category/delete/${this.kbGuid}`,
+			token: this.token,
+			query: {
+				category: normalizeCategoryPath(category),
+			},
+		});
+	}
+
 	async createMarkdownNote(options: {
 		title: string;
 		category: string;

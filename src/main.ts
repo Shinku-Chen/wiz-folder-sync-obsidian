@@ -410,6 +410,13 @@ export default class WizFolderSyncPlugin extends Plugin {
 				await client.deleteNote(docGuid);
 			}
 
+			const categoriesToDelete = [...remoteCategories].sort(
+				(left, right) => right.length - left.length,
+			);
+			for (const category of categoriesToDelete) {
+				await client.deleteCategory(category);
+			}
+
 			this.deleteStateRecordsUnderFolder(folderPath);
 			this.clearPendingAutoSyncForFolder(folderPath);
 			await this.savePluginState();
