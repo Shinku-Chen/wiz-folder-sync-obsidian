@@ -797,8 +797,8 @@ function resolveDesiredLocalPathForRemote(
 	for (let attempt = 0; attempt < 1000; attempt += 1) {
 		const suffix =
 			attempt === 0
-				? ` [${shortDocGuid}]`
-				: ` [${shortDocGuid}-${attempt + 1}]`;
+				? `[${shortDocGuid}]`
+				: `[${shortDocGuid}-${attempt + 1}]`;
 		const candidate = appendSuffixToPath(basePath, suffix);
 		if (isLocalPathAvailableForRemote(context, candidate, context.remoteNote.docGuid)) {
 			context.onLog?.({
@@ -842,7 +842,11 @@ function appendSuffixToPath(path: string, suffix: string): string {
 	const normalizedPath = normalizePath(path);
 	const parts = normalizedPath.split('/');
 	const fileName = parts.pop() ?? normalizedPath;
-	const nextFileName = `${fileName}${suffix}`;
+	const dot = fileName.lastIndexOf('.');
+	const nextFileName =
+		dot > 0
+			? `${fileName.slice(0, dot)}${suffix}${fileName.slice(dot)}`
+			: `${fileName}${suffix}`;
 	return parts.length > 0
 		? normalizePath(`${parts.join('/')}/${nextFileName}`)
 		: nextFileName;
