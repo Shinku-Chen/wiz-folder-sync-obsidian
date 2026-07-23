@@ -34,6 +34,7 @@ scripts/prepare-build.mjs 构建后整理发布产物到 .build/<plugin-id>/
 manifest.json             Obsidian 插件清单
 styles.css                插件样式
 README.md                 面向用户的使用说明
+CHANGELOG.md              项目指定变更记录；每次代码变动都要先追加本次改动摘要
 versions.json             插件版本到最低 Obsidian 版本的映射
 ```
 
@@ -123,6 +124,7 @@ Don't:
 ## 提交规范
 
 - 每次修改代码时，必须先把改动实际写回项目文件，再进行验证、汇报和提交；不要只停留在方案说明或伪代码层。
+- 每次代码变动都要先更新根目录 `CHANGELOG.md`，记录日期、影响文件和改动摘要；未更新变更记录时，不进入验证、汇报和提交流程。
 - commit 标题：`type(scope): 简述`，`type` 取 `feat/fix/docs/refactor/perf/test/chore/build/ci`，简述用祈使句、默认中文、结尾不加句号。
 - 一个 commit 只做一件事，message 描述最终 diff，不记录调试过程。
 - commit 后在同一轮内 `git push`；如果仓库采用分支或 PR 流程，按协作流程走，不要把无关改动混进去。
