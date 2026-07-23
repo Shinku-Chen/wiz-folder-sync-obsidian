@@ -97,15 +97,6 @@ export default class WizFolderSyncPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			void this.runLifecycleSync('startup');
 		});
-
-		this.registerEvent(
-			this.app.workspace.on('quit', (tasks) => {
-				// Obsidian only offers a best-effort quit hook. Queue a final sync task here.
-				tasks.add(async () => {
-					await this.runLifecycleSync('shutdown');
-				});
-			}),
-		);
 	}
 
 	onunload() {
@@ -325,7 +316,7 @@ export default class WizFolderSyncPlugin extends Plugin {
 		}
 	}
 
-	private async runLifecycleSync(trigger: 'startup' | 'shutdown') {
+	private async runLifecycleSync(trigger: 'startup') {
 		if (!this.isSyncConfigured()) {
 			this.appendLog(
 				'info',
@@ -341,19 +332,12 @@ export default class WizFolderSyncPlugin extends Plugin {
 			return;
 		}
 
-		if (trigger === 'shutdown') {
-			this.clearAutoSyncTimer();
-		}
-
 		await this.runManagedSync({
 			scope: trigger,
-			startMessage:
-				trigger === 'startup'
-					? 'Startup sync started'
-					: 'Shutdown sync started',
+			startMessage: 'Startup sync started',
 			notifyIfRunning: false,
 			successNotice: false,
-			failureNotice: trigger === 'startup',
+			failureNotice: true,
 		});
 	}
 
