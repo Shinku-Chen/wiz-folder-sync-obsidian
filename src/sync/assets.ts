@@ -149,6 +149,7 @@ export async function materializeRemoteAssets(options: {
 	);
 
 	if (allFiles.length === 0) {
+		await removeEmptyFolderIfExists(options.app, assetDir);
 		return cleanMarkdown;
 	}
 
@@ -596,6 +597,19 @@ async function ensureFolderExists(app: App, folderPath: string): Promise<void> {
 			await app.vault.adapter.mkdir(current);
 		}
 	}
+}
+
+async function removeEmptyFolderIfExists(app: App, folderPath: string): Promise<void> {
+	if (!folderPath || !(await app.vault.adapter.exists(folderPath))) {
+		return;
+	}
+
+	const listed = await app.vault.adapter.list(folderPath);
+	if (listed.files.length > 0 || listed.folders.length > 0) {
+		return;
+	}
+
+	await app.vault.adapter.remove(folderPath);
 }
 
 function resolveVaultPath(filePath: string, target: string): string {

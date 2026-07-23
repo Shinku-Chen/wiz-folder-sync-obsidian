@@ -7,7 +7,7 @@
 ### 2026-07-23
 
 - 影响文件：`src/sync/assets.ts`、`CHANGELOG.md`
-- 摘要：远端附件或资源下载结果为空时改为跳过落盘，不再提前创建 `.assets` 目录，减少 Obsidian 中残留的空文件夹。
+- 摘要：远端附件或资源下载结果为空时改为跳过落盘；若当前同步最终没有任何可写附件，还会删除已存在的空 `.assets` 目录，减少 Obsidian 中残留的空文件夹。
 
 - 影响文件：`AGENTS.md`、`src/persistence.ts`、`CHANGELOG.md`
 - 摘要：把日志持久化文件从 `logs.json` 改为纯文本 `logs.log`，按原始日志条目写盘，并兼容迁移已存在的 `logs.json`。
